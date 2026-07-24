@@ -28,6 +28,33 @@ const SUGGESTED_FLIGHTS = [
   { code: "UAE123",  label: "EK123"  },
 ];
 
+const STORM_ZONES = [
+  { id: "storm-1", name: "Mumbai Region Cell", lat: 19.0887, lng: 72.8679, radiusKm: 420, maxRadius: 7, speed: 2.2, color: "rgba(245, 175, 25, 0.7)", severity: "SEVERE", intensity: "SEVERE TURBULENCE" },
+  { id: "storm-2", name: "North Atlantic Corridor", lat: 48.0, lng: -35.0, radiusKm: 750, maxRadius: 12, speed: 1.6, color: "rgba(255, 0, 85, 0.7)", severity: "CRITICAL", intensity: "EXTREME TURBULENCE" },
+  { id: "storm-3", name: "Western Europe Cell", lat: 50.0379, lng: 8.5622, radiusKm: 450, maxRadius: 8, speed: 1.8, color: "rgba(245, 175, 25, 0.7)", severity: "SEVERE", intensity: "SEVERE TURBULENCE" },
+  { id: "storm-4", name: "US East Coast Corridor", lat: 38.8977, lng: -77.0365, radiusKm: 500, maxRadius: 9, speed: 2.0, color: "rgba(16, 185, 129, 0.7)", severity: "MODERATE", intensity: "MODERATE TURBULENCE" },
+];
+
+function buildStormMarkerEl(storm) {
+  const el = document.createElement("div");
+  el.className = `globe-storm-marker ${storm.severity.toLowerCase()}`;
+  el.innerHTML = `
+    <div class="storm-pulse-ring"></div>
+    <div class="storm-core-dot"></div>
+    <div class="globe-tooltip storm-tooltip">
+      <div class="storm-tooltip-title">⛈️ ${storm.name}</div>
+      <div class="storm-tooltip-row"><span>Severity</span><span class="severity-tag">${storm.severity}</span></div>
+      <div class="storm-tooltip-row"><span>Altitude</span><span>FL050 - FL450</span></div>
+      <div class="storm-tooltip-row"><span>Intensity</span><span>${storm.intensity}</span></div>
+    </div>
+  `;
+  el.addEventListener("wheel", (e) => {
+    const canvas = document.querySelector(".globe-view canvas");
+    if (canvas) canvas.dispatchEvent(new WheelEvent("wheel", e));
+  });
+  return el;
+}
+
 function formatCoord(value, posLabel, negLabel) {
   const abs = Math.abs(value).toFixed(4);
   return `${abs}° ${value >= 0 ? posLabel : negLabel}`;
@@ -239,8 +266,217 @@ export default function Dashboard() {
   const [airportLoading, setAirportLoading]   = useState(false);
   const [airportError, setAirportError]       = useState(null);
 
+  // ─── Autopilot & Analytics states ──────────────────────────────────────────
+  const [autopilotEngaged, setAutopilotEngaged] = useState(false);
+  const [manualHeading, setManualHeading]       = useState(90);
+  const [manualAltitude, setManualAltitude]     = useState(33000);
+  const [manualSpeed, setManualSpeed]           = useState(450);
+
+  const [eventLogs, setEventLogs]               = useState([]);
+  const [accumulatedFuel, setAccumulatedFuel]   = useState(0);
+  const [accumulatedCO2, setAccumulatedCO2]     = useState(0);
+
   const radarDebRef = useRef(null);
   const prevPovRef  = useRef(null);
+
+  // ─── Event Logger Helper ──────────────────────────────────────────────────
+  const addEventLog = useCallback((message, type = "info") => {
+    const timestamp = new Date().toISOString().slice(11, 19);
+    setEventLogs(prev => [
+      { id: Date.now() + Math.random().toString(), timestamp, message, type },
+      ...prev
+    ].slice(0, 100));
+  }, []);
+
+  const logThrottleRef = useRef({});
+  const throttledLog = useCallback((key, msg, type) => {
+    const now = Date.now();
+    if (!logThrottleRef.current[key] || now - logThrottleRef.current[key] > 1800) {
+      addEventLog(msg, type);
+      logThrottleRef.current[key] = now;
+    }
+  }, [addEventLog]);
+
+  // ─── Storm Proximity Logic ────────────────────────────────────────────────
+  const activeStorm = useMemo(() => {
+    if (!flightData || !showWeather) return null;
+    for (const storm of STORM_ZONES) {
+      const dist = getHaversineDistance([flightData.latitude, flightData.longitude], [storm.lat, storm.lng]);
+      if (dist <= storm.radiusKm) {
+        return { ...storm, distance: dist };
+      }
+    }
+    return null;
+  }, [flightData, showWeather]);
+
+  // ─── Carbon & Efficiency Metrics Derivations ──────────────────────────────
+  const currentBurnRate = useMemo(() => {
+    if (!flightData) return 0;
+    const type = (flightData.aircraft?.type || "").toUpperCase();
+    let baseRate = 3500;
+    if (type.includes("380")) baseRate = 12000;
+    else if (type.includes("350") || type.includes("777") || type.includes("747")) baseRate = 7500;
+    else if (type.includes("787") || type.includes("330")) baseRate = 5600;
+    else if (type.includes("320") || type.includes("737")) baseRate = 2600;
+
+    const altFt = flightData.altitude * 3.28084;
+    let altFactor = 1.0;
+    if (altFt < 10000) altFactor = 1.45;
+    else if (altFt < 20000) altFactor = 1.25;
+    else if (altFt < 30000) altFactor = 1.1;
+    else if (altFt > 38000) altFactor = 0.85;
+
+    const spdKts = flightData.velocity / 1.852;
+    const speedFactor = spdKts > 100 ? spdKts / 450 : 0.5;
+
+    return Math.round(baseRate * altFactor * speedFactor);
+  }, [flightData]);
+
+  const getEfficiencyGrade = useCallback((alt, vel) => {
+    const altFt = alt * 3.28084;
+    const spdKts = vel / 1.852;
+    if (altFt < 1000) return "N/A";
+    let score = 100;
+    
+    if (altFt < 20000) score -= 40;
+    else if (altFt < 30000) score -= 20;
+    else if (altFt > 38000) score += 5;
+    
+    if (spdKts < 350) score -= 25;
+    else if (spdKts > 520) score -= 15;
+    
+    if (score >= 95) return "A+";
+    if (score >= 85) return "A";
+    if (score >= 70) return "B";
+    if (score >= 50) return "C";
+    if (score >= 30) return "D";
+    return "F";
+  }, []);
+
+  const prevStormRef = useRef(null);
+  useEffect(() => {
+    if (activeStorm) {
+      if (prevStormRef.current !== activeStorm.id) {
+        addEventLog(`⚠️ WEATHER RADAR: Entered stormy area "${activeStorm.name}". Turbulence: ${activeStorm.severity}.`, "danger");
+        prevStormRef.current = activeStorm.id;
+      }
+    } else if (prevStormRef.current) {
+      const clearedStorm = STORM_ZONES.find(s => s.id === prevStormRef.current);
+      if (clearedStorm) {
+        addEventLog(`⛅ WEATHER RADAR: Cleared stormy area "${clearedStorm.name}". Skies are now clear.`, "success");
+      }
+      prevStormRef.current = null;
+    }
+  }, [activeStorm, addEventLog]);
+
+  // ─── Autopilot Control Engagements ────────────────────────────────────────
+  const toggleAutopilot = () => {
+    if (autopilotEngaged) {
+      setAutopilotEngaged(false);
+      addEventLog(`🎛️ AUTOPILOT: Manual override disengaged. Restoring auto navigation.`, "info");
+      if (flightNo) fetchFlight(flightNo);
+    } else if (flightData) {
+      setAutopilotEngaged(true);
+      const altFt = Math.round(flightData.altitude * 3.28084);
+      const spdKts = Math.round(flightData.velocity / 1.852);
+      setManualAltitude(altFt || 33000);
+      setManualHeading(Math.round(flightData.heading) || 90);
+      setManualSpeed(spdKts || 450);
+      addEventLog(`🎛️ AUTOPILOT OVERRIDE ACTIVE. Core flight computer offline. Steering manual.`, "warning");
+    }
+  };
+
+  const handleHeadingChange = (val) => {
+    setManualHeading(val);
+    throttledLog("heading", `Autopilot heading overridden: ${val}°`, "control");
+  };
+
+  const handleAltitudeChange = (val) => {
+    setManualAltitude(val);
+    throttledLog("altitude", `Autopilot altitude overridden: ${val.toLocaleString()} ft`, "control");
+  };
+
+  const handleSpeedChange = (val) => {
+    setManualSpeed(val);
+    throttledLog("speed", `Autopilot speed overridden: ${val} kts`, "control");
+  };
+
+  // ─── Autopilot Dead Reckoning Simulation Loop ─────────────────────────────
+  useEffect(() => {
+    if (!autopilotEngaged || !flightData) return;
+
+    const interval = setInterval(() => {
+      setFlightData(prev => {
+        if (!prev) return null;
+
+        const speedKmh = manualSpeed * 1.852;
+        const p = getProjectedPoint(prev.latitude, prev.longitude, manualHeading, (speedKmh / 3600) * 2);
+
+        setTrail(t => [...t, p].slice(-50));
+
+        setChartData(c => [...c, {
+          tick: c.length + 1,
+          altitude: Math.round(manualAltitude),
+          speed: Math.round(manualSpeed)
+        }].slice(-30));
+
+        return {
+          ...prev,
+          latitude: p[0],
+          longitude: p[1],
+          altitude: manualAltitude / 3.28084,
+          velocity: speedKmh,
+          heading: manualHeading
+        };
+      });
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [autopilotEngaged, manualHeading, manualAltitude, manualSpeed]);
+
+  const flightDataRef = useRef();
+  useEffect(() => {
+    flightDataRef.current = flightData;
+  }, [flightData]);
+
+  // ─── Fuel Burn & CO₂ Accumulator Loop ─────────────────────────────────────
+  useEffect(() => {
+    if (!flightData) {
+      setAccumulatedFuel(0);
+      setAccumulatedCO2(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const currentFlight = flightDataRef.current;
+      if (!currentFlight) return;
+
+      const type = (currentFlight.aircraft?.type || "").toUpperCase();
+      let baseRate = 3500;
+      if (type.includes("380")) baseRate = 12000;
+      else if (type.includes("350") || type.includes("777") || type.includes("747")) baseRate = 7500;
+      else if (type.includes("787") || type.includes("330")) baseRate = 5600;
+      else if (type.includes("320") || type.includes("737")) baseRate = 2600;
+
+      const altFt = currentFlight.altitude * 3.28084;
+      let altFactor = 1.0;
+      if (altFt < 10000) altFactor = 1.45;
+      else if (altFt < 20000) altFactor = 1.25;
+      else if (altFt < 30000) altFactor = 1.1;
+      else if (altFt > 38000) altFactor = 0.85;
+
+      const spdKts = currentFlight.velocity / 1.852;
+      const speedFactor = spdKts > 100 ? spdKts / 450 : 0.5;
+
+      const currentBurnRate = Math.round(baseRate * altFactor * speedFactor);
+      const stepFuel = (currentBurnRate / 3600) * 2;
+
+      setAccumulatedFuel(prev => prev + stepFuel);
+      setAccumulatedCO2(prev => (prev + stepFuel) * 3.16);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [flightData === null]);
 
   // Window dimensions for responsive globe sizing
   const [dims, setDims] = useState({ w: window.innerWidth, h: window.innerHeight });
@@ -377,6 +613,11 @@ export default function Dashboard() {
     // by incrementing the generation counter, then reset state cleanly.
     if (currentCallsign !== cleanCode) {
       flyGenRef.current += 1; // invalidate any queued fly-to from the old flight
+      setAutopilotEngaged(false);
+      setAccumulatedFuel(0);
+      setAccumulatedCO2(0);
+      addEventLog(`📡 RADAR: Scanning for callsign "${cleanCode}"...`, "info");
+
       if (initialData) {
         setFlightData({
           callsign: cleanCode,
@@ -389,6 +630,12 @@ export default function Dashboard() {
         setTrail([[initialData.latitude, initialData.longitude]]);
         setChartData([{ tick: 1, altitude: Math.round(initialData.altitude * 3.28084), speed: Math.round(initialData.velocity / 1.852) }]);
         setHasPosition(false); // Force fly-to on next successful fetch
+
+        const altFt = Math.round(initialData.altitude * 3.28084);
+        const spdKts = Math.round(initialData.velocity / 1.852);
+        setManualAltitude(altFt || 33000);
+        setManualHeading(Math.round(initialData.heading) || 90);
+        setManualSpeed(spdKts || 450);
       } else {
         setFlightData(null); setTrail([]); setChartData([]);
         setHasPosition(false);
@@ -404,6 +651,7 @@ export default function Dashboard() {
       const data = await res.json();
 
       if (data.error) {
+        addEventLog(`📡 RADAR: Scanner failed: ${data.error}`, "danger");
         setError(data.error); setFlightData(null); setTrail([]);
         setChartData([]); setDemoRoute(null); return;
       }
@@ -441,6 +689,18 @@ export default function Dashboard() {
       }
       setFlightData(enrichedData);
       setError(null);
+
+      if (currentCallsign !== cleanCode) {
+        addEventLog(`📡 RADAR: Target locked: ${enrichedData.callsign} (${enrichedData.aircraft?.manufacturer || "Generic"} ${enrichedData.aircraft?.type || "Aircraft"}).`, "success");
+      }
+
+      if (!autopilotEngaged) {
+        const altFt = Math.round(enrichedData.altitude * 3.28084);
+        const spdKts = Math.round(enrichedData.velocity / 1.852);
+        setManualAltitude(altFt || 33000);
+        setManualHeading(Math.round(enrichedData.heading) || 90);
+        setManualSpeed(spdKts || 450);
+      }
 
       // Route / arc setup
       if (data.departure && data.arrival) {
@@ -509,10 +769,10 @@ export default function Dashboard() {
 
   // Auto-refresh every 5 s while tracking
   useEffect(() => {
-    if (!flightData) return;
+    if (!flightData || autopilotEngaged) return;
     const id = setInterval(() => fetchFlight(flightNo), 5000);
     return () => clearInterval(id);
-  }, [flightData, flightNo]);
+  }, [flightData, flightNo, autopilotEngaged]);
 
   // Reset when search input cleared
   useEffect(() => {
@@ -545,6 +805,7 @@ export default function Dashboard() {
 
   const getFlightPhase = () => {
     if (!flightData) return "UNKNOWN";
+    if (activeStorm) return "WEATHER EVASION";
     if (flightData.altitude < 1000) return "APPROACH / LANDING";
     if (chartData.length >= 2) {
       const rate = chartData[chartData.length-1].altitude - chartData[chartData.length-2].altitude;
@@ -587,7 +848,16 @@ export default function Dashboard() {
 
   // Arcs data: main flight route (animated dash) + heading-projected line
   const arcsData = [];
-  if (demoRoute) {
+  if (autopilotEngaged && flightData) {
+    const headingDest = getProjectedPoint(flightData.latitude, flightData.longitude, manualHeading, 1500);
+    arcsData.push({
+      id: "autopilot-projection",
+      startLat: flightData.latitude, startLng: flightData.longitude,
+      endLat: headingDest[0], endLng: headingDest[1],
+      color: "#00f2fe",
+      isProjected: true
+    });
+  } else if (demoRoute) {
     arcsData.push({
       id: "main-route",
       startLat: demoRoute.start[0], startLng: demoRoute.start[1],
@@ -692,6 +962,30 @@ export default function Dashboard() {
     return detectConflicts(list);
   }, [flightData, derivedRadarFlights]);
 
+  // Log collision conflicts
+  const prevConflictSetRef = useRef(new Set());
+  useEffect(() => {
+    const currentPairs = new Set(conflicts.map(c => `${c.f1Callsign}-${c.f2Callsign}`));
+    
+    conflicts.forEach(c => {
+      const pairKey = `${c.f1Callsign}-${c.f2Callsign}`;
+      if (!prevConflictSetRef.current.has(pairKey)) {
+        const minutes = Math.floor(c.timeToCpaSecs / 60);
+        const seconds = c.timeToCpaSecs % 60;
+        const timeStr = c.timeToCpaSecs === 0 ? "IMMEDIATE" : `CPA in ${minutes}m ${seconds}s`;
+        addEventLog(`⚠️ COLLISION RISK: Traffic separation violation for ${c.f1Callsign} / ${c.f2Callsign}! (${timeStr})`, "danger");
+      }
+    });
+
+    prevConflictSetRef.current.forEach(pairKey => {
+      if (!currentPairs.has(pairKey)) {
+        addEventLog(`✅ Conflict resolved: Traffic separation restored for ${pairKey.replace("-", " / ")}.`, "success");
+      }
+    });
+
+    prevConflictSetRef.current = currentPairs;
+  }, [conflicts, addEventLog]);
+
   const conflictCallsigns = useMemo(() => {
     const set = new Set();
     conflicts.forEach(c => {
@@ -715,7 +1009,11 @@ export default function Dashboard() {
     .filter(f => f.latitude && f.longitude && !isNaN(f.latitude))
     .map(f => ({ lat: f.latitude, lng: f.longitude, isActive: false, data: f }));
 
-  const allMarkerData = [...activeMarkerData, ...miniMarkerData];
+  const stormMarkerData = showWeather
+    ? STORM_ZONES.map(s => ({ lat: s.lat, lng: s.lng, isStorm: true, data: s }))
+    : [];
+
+  const allMarkerData = [...activeMarkerData, ...miniMarkerData, ...stormMarkerData];
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
@@ -740,7 +1038,7 @@ export default function Dashboard() {
       </header>
 
       {/* ── LEFT PANEL ─────────────────────────────────────────────────────── */}
-      <aside className="left-panel">
+      <aside className={`left-panel ${activeStorm && activeStorm.severity !== "MODERATE" ? "vibrate-panel" : ""}`}>
         <div className="left-panel-scrollable">
         <div className="tab-bar">
           <button className={`tab-btn ${activeTab === "search" ? "active" : ""}`} onClick={() => setActiveTab("search")}>
@@ -947,7 +1245,83 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Demo alert moved to top of deck — removed from here */}
+            {/* 🎛️ Autopilot Override steering Console */}
+            <div className="autopilot-console-card">
+              <div className="autopilot-title-row">
+                <span className={`status-dot ${autopilotEngaged ? "active" : "idle"}`} style={autopilotEngaged ? {background: 'var(--neon-cyan)', boxShadow: '0 0 10px var(--neon-cyan)'} : {}} />
+                <span className="autopilot-label">AUTOPILOT OVERRIDE</span>
+                <button
+                  className={`cyber-btn autopilot-toggle-btn ${autopilotEngaged ? "active" : ""}`}
+                  onClick={() => toggleAutopilot()}
+                >
+                  {autopilotEngaged ? "DISENGAGE" : "ENGAGE"}
+                </button>
+              </div>
+
+              {autopilotEngaged && (
+                <div className="autopilot-sliders">
+                  <div className="slider-row">
+                    <span className="slider-label">ALTITUDE: {manualAltitude.toLocaleString()} ft</span>
+                    <input
+                      type="range"
+                      min="1000"
+                      max="45000"
+                      step="500"
+                      value={manualAltitude}
+                      onChange={e => handleAltitudeChange(parseInt(e.target.value))}
+                      className="autopilot-range"
+                    />
+                  </div>
+                  <div className="slider-row">
+                    <span className="slider-label">HEADING: {manualHeading}°</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="359"
+                      step="1"
+                      value={manualHeading}
+                      onChange={e => handleHeadingChange(parseInt(e.target.value))}
+                      className="autopilot-range"
+                    />
+                  </div>
+                  <div className="slider-row">
+                    <span className="slider-label">SPEED: {manualSpeed} kts</span>
+                    <input
+                      type="range"
+                      min="100"
+                      max="650"
+                      step="5"
+                      value={manualSpeed}
+                      onChange={e => handleSpeedChange(parseInt(e.target.value))}
+                      className="autopilot-range"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ⛽ Fuel & Carbon Efficiency Analytics Card */}
+            <div className="efficiency-deck-card">
+              <div className="section-title">EFFICIENCY & CARBON INDEX</div>
+              <div className="efficiency-grid">
+                <div className="efficiency-tile">
+                  <span className="eff-label">FUEL BURN RATE</span>
+                  <span className="eff-val">{currentBurnRate.toLocaleString()} <span className="eff-unit">kg/h</span></span>
+                </div>
+                <div className="efficiency-tile">
+                  <span className="eff-label">FUEL CONSUMED</span>
+                  <span className="eff-val">{Math.round(accumulatedFuel).toLocaleString()} <span className="eff-unit">kg</span></span>
+                </div>
+                <div className="efficiency-tile font-gold">
+                  <span className="eff-label">CO₂ EMISSIONS</span>
+                  <span className="eff-val">{(accumulatedCO2 / 1000).toFixed(3)} <span className="eff-unit">tons</span></span>
+                </div>
+                <div className="efficiency-tile font-grade">
+                  <span className="eff-label">EFFICIENCY GRADE</span>
+                  <span className="eff-grade-badge">{getEfficiencyGrade(flightData.altitude, flightData.velocity)}</span>
+                </div>
+              </div>
+            </div>
 
             <div className="metrics-grid">
               <div className="metric-tile">
@@ -980,6 +1354,24 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* 📜 scrolling Live Event Terminal Log */}
+        {flightData && (
+          <div className="event-log-panel-card">
+            <div className="section-title">SYSTEM EVENT LOG</div>
+            <div className="event-log-console">
+              {eventLogs.map(log => (
+                <div key={log.id} className={`log-row ${log.type}`}>
+                  <span className="log-time">[{log.timestamp}]</span>
+                  <span className="log-msg">{log.message}</span>
+                </div>
+              ))}
+              {eventLogs.length === 0 && (
+                <div className="log-empty">Radar link established. System listening...</div>
+              )}
+            </div>
+          </div>
+        )}
         </div>
       </aside>
 
@@ -992,7 +1384,7 @@ export default function Dashboard() {
 
       {/* ── RIGHT CHART PANEL ──────────────────────────────────────────────── */}
       {flightData && chartData.length > 0 && (
-        <div className={`right-chart-panel ${showChartPanel ? "expanded" : "collapsed"}`}>
+        <div className={`right-chart-panel ${showChartPanel ? "expanded" : "collapsed"} ${activeStorm && activeStorm.severity !== "MODERATE" ? "vibrate-panel" : ""}`}>
           <button className="panel-toggle" onClick={() => setShowChartPanel(v => !v)}>
             {showChartPanel ? "▶ HIDE RADAR" : "◀ SHOW RADAR CHART"}
           </button>
@@ -1033,6 +1425,25 @@ export default function Dashboard() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ── TURBULENCE WARNING HUD ────────────────────────────────────────── */}
+      {activeStorm && (
+        <div className={`turbulence-warning-hud ${activeStorm.severity.toLowerCase()}`}>
+          <div className="hud-title-row">
+            <span className="warning-blink-dot">⚠️</span>
+            <span className="hud-alert-title">TURBULENCE ALERT</span>
+          </div>
+          <div className="hud-body-row">
+            <span>STORM CELL:</span> <strong>{activeStorm.name}</strong>
+          </div>
+          <div className="hud-body-row">
+            <span>SEVERITY:</span> <strong className="danger-text">{activeStorm.severity}</strong>
+          </div>
+          <div className="hud-body-row">
+            <span>DIST TO EYE:</span> <strong>{Math.round(activeStorm.distance)} km</strong>
           </div>
         </div>
       )}
@@ -1090,6 +1501,15 @@ export default function Dashboard() {
           pathStroke={0.35}
           pathTransitionDuration={0}
 
+          // ─── Weather Radar Storm Rings ──────────────────────────────────
+          ringsData={showWeather ? STORM_ZONES : []}
+          ringLat={d => d.lat}
+          ringLng={d => d.lng}
+          ringColor={d => d.color}
+          ringMaxRadius={d => d.maxRadius}
+          ringPropagationSpeed={d => d.speed}
+          ringRepeatNum={2}
+
           // ─── Conflict links ──────────────────────────────────────────────
           linksData={conflictLinks}
           linkStartLat={d => d.startLat}
@@ -1110,7 +1530,11 @@ export default function Dashboard() {
           htmlAltitude={0.005}
           htmlElement={d => {
             try {
-              if (!d || !d.data || !d.data.callsign) return null;
+              if (!d) return null;
+              if (d.isStorm) {
+                return buildStormMarkerEl(d.data);
+              }
+              if (!d.data || !d.data.callsign) return null;
               const isConflict = conflictCallsigns.has(d.data.callsign);
               if (d.isActive) {
                 return buildActivePlaneEl(d.data, stopTracking, isConflict);
