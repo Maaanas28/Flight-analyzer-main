@@ -255,6 +255,7 @@ export default function Dashboard() {
   const [demoRoute, setDemoRoute]     = useState(null);
   const [timeStr, setTimeStr]         = useState("");
   const [showChartPanel, setShowChartPanel] = useState(true);
+  const [globeAlt, setGlobeAlt]       = useState(2.5);
 
   const [radarFlights, setRadarFlights] = useState([]);
   const [radarLoading, setRadarLoading] = useState(false);
@@ -276,8 +277,57 @@ export default function Dashboard() {
   const [accumulatedFuel, setAccumulatedFuel]   = useState(0);
   const [accumulatedCO2, setAccumulatedCO2]     = useState(0);
 
-  const radarDebRef = useRef(null);
-  const prevPovRef  = useRef(null);
+  const radarDebRef  = useRef(null);
+  const prevPovRef   = useRef(null);
+  const wsRef        = useRef(null);   // WebSocket connection to backend
+  const radarMapRef  = useRef(new Map()); // icao24 → plane object (mutable, no re-render)
+  const currentBoxRef = useRef(null); // last sent bbox to WS
+
+  // Smoothly interpolate active plane position
+  const [smoothLat, setSmoothLat] = useState(null);
+  const [smoothLng, setSmoothLng] = useState(null);
+
+  useEffect(() => {
+    if (!flightData || isNaN(flightData.latitude) || isNaN(flightData.longitude)) {
+      setSmoothLat(null);
+      setSmoothLng(null);
+      return;
+    }
+
+    let animId;
+    const targetLat = flightData.latitude;
+    const targetLng = flightData.longitude;
+
+    setSmoothLat(prevLat => {
+      if (prevLat === null || Math.abs(prevLat - targetLat) > 2) return targetLat;
+      return prevLat;
+    });
+    setSmoothLng(prevLng => {
+      if (prevLng === null || Math.abs(prevLng - targetLng) > 2) return targetLng;
+      return prevLng;
+    });
+
+    const updatePosition = () => {
+      setSmoothLat(currLat => {
+        if (currLat === null) return targetLat;
+        const diff = targetLat - currLat;
+        if (Math.abs(diff) < 0.0001) return targetLat;
+        return currLat + diff * 0.06; // smooth easing factor
+      });
+      setSmoothLng(currLng => {
+        if (currLng === null) return targetLng;
+        let diff = targetLng - currLng;
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+        if (Math.abs(diff) < 0.0001) return targetLng;
+        return ((currLng + diff * 0.06 + 180) % 360) - 180;
+      });
+      animId = requestAnimationFrame(updatePosition);
+    };
+
+    animId = requestAnimationFrame(updatePosition);
+    return () => cancelAnimationFrame(animId);
+  }, [flightData]);
 
   // ─── Event Logger Helper ──────────────────────────────────────────────────
   const addEventLog = useCallback((message, type = "info") => {
@@ -568,10 +618,106 @@ export default function Dashboard() {
     }, 20);
   }, []);
 
-  // ─── Radar scan helper ────────────────────────────────────────────────────
+  // ─── WebSocket radar setup ────────────────────────────────────────────────
+  // Opens a single persistent WS to backend, sends bbox when viewport changes,
+  // receives diff updates (updated planes + removed icao24s) every ~4 seconds.
+  const sendBbox = useCallback((lat, lng, altitudeRatio) => {
+    const delta = Math.max(3, Math.min(40, altitudeRatio * 45));
+    const box = {
+      lamin: Math.max(-90,  lat - delta),
+      lamax: Math.min(90,   lat + delta),
+      lomin: Math.max(-180, lng - delta),
+      lomax: Math.min(180,  lng + delta),
+    };
+    currentBoxRef.current = box;
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(box));
+    }
+  }, []);
+
+  useEffect(() => {
+    const WS_URL = "ws://localhost:5000/ws/radar";
+    let reconnectTimer = null;
+
+    const connect = () => {
+      const ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        // Immediately send current bbox if we have one, otherwise send a default global bbox to start loading planes instantly
+        const box = currentBoxRef.current || {
+          lamin: -65,
+          lamax: 85,
+          lomin: -180,
+          lomax: 180
+        };
+        ws.send(JSON.stringify(box));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type !== "radar_diff") return;
+
+          const map = radarMapRef.current;
+          // Apply removals
+          for (const icao24 of (msg.removed || [])) map.delete(icao24);
+          // Apply updates
+          for (const plane of (msg.updated || [])) map.set(plane.icao24, plane);
+
+          // Build display array — exclude actively tracked flight
+          const tracked = flightData?.callsign?.toUpperCase().trim();
+          const display = [];
+          for (const p of map.values()) {
+            if (tracked && p.callsign === tracked) continue;
+            display.push(p);
+          }
+          // Cap at 200 markers — LOD filter in miniMarkerData handles the visual limit
+          setRadarFlights(display.slice(0, 200));
+        } catch {}
+      };
+
+      ws.onclose = () => {
+        // Auto-reconnect after 3s
+        reconnectTimer = setTimeout(connect, 3000);
+      };
+
+      ws.onerror = () => ws.close();
+    };
+
+    connect();
+    return () => {
+      clearTimeout(reconnectTimer);
+      if (wsRef.current) wsRef.current.close();
+    };
+  // eslint-disable-next-line
+  }, []); // mount once — flightData filtering handled inside via ref-captured closure
+
+  const lastSentRef = useRef({ lat: 0, lng: 0, alt: 0 });
+
+  // ─── Globe onZoom → debounced bbox send ──────────────────────────────────
+  const handleGlobeZoom = useCallback((pov) => {
+    prevPovRef.current = pov;
+    setGlobeAlt(pov.altitude);
+
+    const last = lastSentRef.current;
+    const latDiff = Math.abs(pov.lat - last.lat);
+    const lngDiff = Math.abs(pov.lng - last.lng);
+    const altDiff = Math.abs(pov.altitude - last.alt);
+
+    // Only send the bbox update if the camera moved significantly
+    // This stops slow auto-rotation from constantly resetting (starving) the debounce timer
+    if (latDiff > 4 || lngDiff > 4 || altDiff > 0.1) {
+      if (radarDebRef.current) clearTimeout(radarDebRef.current);
+      radarDebRef.current = setTimeout(() => {
+        sendBbox(pov.lat, pov.lng, pov.altitude);
+        lastSentRef.current = { lat: pov.lat, lng: pov.lng, alt: pov.altitude };
+      }, 500);
+    }
+  }, [sendBbox]);
+
+  // Keep scanRadar as REST fallback (used if WS is unavailable)
   const scanRadar = useCallback(async (lat, lng, altitudeRatio) => {
-    // Map globe altitude ratio → bounding box delta
-    // Clamped to max 40° to avoid OpenSky rejecting huge bounding boxes
     const delta = Math.max(3, Math.min(40, altitudeRatio * 45));
     const lamin = Math.max(-90,  lat - delta);
     const lamax = Math.min(90,   lat + delta);
@@ -582,24 +728,13 @@ export default function Dashboard() {
       const res  = await fetch(`http://localhost:5000/api/flights/radar?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`);
       const data = await res.json();
       if (Array.isArray(data)) {
-        const filtered = flightData?.callsign
-          ? data.filter(f => f.callsign !== flightData.callsign.toUpperCase().trim())
-          : data;
-        // Cap at 60 for performance — 100 HTML elements causes measurable jank
-        setRadarFlights(filtered.slice(0, 60));
+        const tracked = flightData?.callsign?.toUpperCase().trim();
+        const filtered = tracked ? data.filter(f => f.callsign !== tracked) : data;
+        setRadarFlights(filtered.slice(0, 80));
       }
-    } catch (e) { /* fail silently */ }
+    } catch { /* fail silently */ }
     finally { setRadarLoading(false); }
   }, [flightData]);
-
-  // ─── Globe onZoom → debounced radar ──────────────────────────────────────
-  const handleGlobeZoom = useCallback((pov) => {
-    prevPovRef.current = pov;
-    if (radarDebRef.current) clearTimeout(radarDebRef.current);
-    radarDebRef.current = setTimeout(() => {
-      scanRadar(pov.lat, pov.lng, pov.altitude);
-    }, 2000);
-  }, [scanRadar]);
 
   // ─── Fetch flight data ────────────────────────────────────────────────────
   const fetchFlight = async (searchCode = flightNo, initialData = null, flyToOnSuccess = false) => {
@@ -876,7 +1011,16 @@ export default function Dashboard() {
   // HTML markers data: active plane + mini radar planes
   // We use separate htmlElementsData arrays for cleaner code
   const activeMarkerData = flightData && !isNaN(flightData.latitude)
-    ? [{ lat: flightData.latitude, lng: flightData.longitude, isActive: true, data: flightData }]
+    ? [{
+        lat: smoothLat !== null ? smoothLat : flightData.latitude,
+        lng: smoothLng !== null ? smoothLng : flightData.longitude,
+        isActive: true,
+        data: {
+          ...flightData,
+          latitude: smoothLat !== null ? smoothLat : flightData.latitude,
+          longitude: smoothLng !== null ? smoothLng : flightData.longitude
+        }
+      }]
     : [];
 
   // Dynamic mock conflict flight injection when tracking simulated/demo flights
@@ -938,22 +1082,22 @@ export default function Dashboard() {
     return list;
   }, [radarFlights, flightData]);
 
-  // Conflict calculation
+  // Conflict calculation — only when actively tracking a flight
   const conflicts = useMemo(() => {
-    const list = [];
-    const seen = new Set();
+    // Don't run conflict detection if no flight is being tracked
+    if (!flightData || isNaN(flightData.latitude) || !flightData.callsign) return [];
 
-    if (flightData && !isNaN(flightData.latitude) && flightData.callsign) {
-      const key = flightData.callsign.toUpperCase().trim();
-      seen.add(key);
-      list.push(flightData);
-    }
+    const trackedKey = flightData.callsign.toUpperCase().trim();
+    const list = [flightData];
 
+    // Only check nearby radar planes (within ~5 degrees ≈ 550km) to avoid global false positives
     derivedRadarFlights.forEach(f => {
       if (f.latitude != null && f.longitude != null && !isNaN(f.latitude) && f.callsign) {
         const key = f.callsign.toUpperCase().trim();
-        if (!seen.has(key)) {
-          seen.add(key);
+        if (key === trackedKey) return;
+        const dlat = Math.abs(f.latitude - flightData.latitude);
+        const dlng = Math.abs(f.longitude - flightData.longitude);
+        if (dlat < 5 && dlng < 5) {
           list.push(f);
         }
       }
@@ -1005,9 +1149,33 @@ export default function Dashboard() {
     }));
   }, [conflicts]);
 
-  const miniMarkerData = derivedRadarFlights
-    .filter(f => f.latitude && f.longitude && !isNaN(f.latitude))
-    .map(f => ({ lat: f.latitude, lng: f.longitude, isActive: false, data: f }));
+  const miniMarkerData = useMemo(() => {
+    let list = derivedRadarFlights;
+    const centerLat = prevPovRef.current?.lat || 20;
+    const centerLng = prevPovRef.current?.lng || 0;
+
+    // Simple squared-distance for sorting (no need for full haversine)
+    const dist2 = (f) => {
+      const dl = f.latitude - centerLat;
+      const dn = f.longitude - centerLng;
+      return dl * dl + dn * dn;
+    };
+
+    if (globeAlt > 2.2) {
+      // Zoomed out very far: show all planes scattered globally
+      list = list.slice(0, 200);
+    } else if (globeAlt > 1.2) {
+      // Mid zoom: sort by distance, show 80 nearest
+      list = [...list].sort((a, b) => dist2(a) - dist2(b)).slice(0, 80);
+    } else {
+      // Zoomed in: sort by distance, show 150 nearest
+      list = [...list].sort((a, b) => dist2(a) - dist2(b)).slice(0, 150);
+    }
+
+    return list
+      .filter(f => f.latitude && f.longitude && !isNaN(f.latitude))
+      .map(f => ({ lat: f.latitude, lng: f.longitude, isActive: false, data: f }));
+  }, [derivedRadarFlights, globeAlt]);
 
   const stormMarkerData = showWeather
     ? STORM_ZONES.map(s => ({ lat: s.lat, lng: s.lng, isStorm: true, data: s }))
@@ -1529,21 +1697,22 @@ export default function Dashboard() {
           htmlLng={d => d.lng}
           htmlAltitude={0.005}
           htmlElement={d => {
+            const emptyEl = () => { const e = document.createElement('div'); e.style.display = 'none'; return e; };
             try {
-              if (!d) return null;
+              if (!d) return emptyEl();
               if (d.isStorm) {
-                return buildStormMarkerEl(d.data);
+                return buildStormMarkerEl(d.data) || emptyEl();
               }
-              if (!d.data || !d.data.callsign) return null;
+              if (!d.data || !d.data.callsign) return emptyEl();
               const isConflict = conflictCallsigns.has(d.data.callsign);
               if (d.isActive) {
-                return buildActivePlaneEl(d.data, stopTracking, isConflict);
+                return buildActivePlaneEl(d.data, stopTracking, isConflict) || emptyEl();
               } else {
-                return buildMiniPlaneEl(d.data, handleShortcutClick, isConflict);
+                return buildMiniPlaneEl(d.data, handleShortcutClick, isConflict) || emptyEl();
               }
             } catch (err) {
               console.error("HTML marker build error:", err);
-              return null;
+              return emptyEl();
             }
           }}
         />

@@ -1,0 +1,12 @@
+{
+  "name": "flight-analyzer-root",
+  "version": "1.0.0",
+  "description": "Root package for MERN Flight Analyzer",
+  "scripts": {
+    "dev": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"cyan,magenta\" \"npm run dev --prefix backend\" \"npm start --prefix frontend\"",
+    "install-all": "npm install && npm install --prefix backend && npm install --prefix frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

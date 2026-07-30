@@ -95,7 +95,7 @@ try {
   const dbPath = path.join(__dirname, "..", "data", "airports_db.json");
   if (fs.existsSync(dbPath)) {
     airportsDb = JSON.parse(fs.readFileSync(dbPath, "utf8"));
-    console.log(`✅ Loaded ${Object.keys(airportsDb).length} airport coordinate lookups.`);
+    console.log(`` + `✅ Loaded ${Object.keys(airportsDb).length} airport coordinate lookups.`);
   }
 } catch (err) {
   console.error("❌ Failed to load airports_db.json:", err.message);
@@ -270,10 +270,9 @@ async function getAircraftDetails(icao24) {
   return null;
 }
 
-// ─── Smart cache (5 min) — avoid hitting OpenSky's 400 req/day limit ────────
+// ─── Smart cache (4 sec) — avoid hitting OpenSky's 400 req/day limit ────────
 const flightCache  = new Map();
-const CACHE_TTL_MS = 180_000; // 3 minutes — fresh position data without hammering OpenSky
-
+const CACHE_TTL_MS = 4_000; // 4s — just under the 5s frontend poll interval, keeps live tracking smooth without hammering upstream APIs
 
 // ─── Demo fallback routes ─────────────────────────────────────────────────────
 // altitudes in METRES (OpenSky standard) — 10668m ≈ 35,000ft cruise
@@ -339,7 +338,7 @@ function simulateFlight(callsign, start, end, country, cruiseAlt, cruiseSpeed) {
     ? { manufacturer: "Airbus", type: "A320-251N", icaoType: "A20N", registration: "D-AINA" }
     : { manufacturer: "Boeing", type: "777-367ER", icaoType: "B77W", registration: "A7-BEX" };
 
-  // Resolve departure/arrival airports based on start/end coordinates (Fixes Bug 2)
+  // Resolve departure/arrival airports based on start/end coordinates
   const depAp = findNearestAirport(start.lat, start.lng, 250);
   const arrAp = findNearestAirport(end.lat, end.lng, 250);
 
@@ -445,6 +444,35 @@ async function getOpenSkyToken() {
   return null;
 }
 
+// ─── airplanes.live callsign query (primary) ───────────────────────────────────
+async function fetchFromAirplanesLiveCallsign(callsign) {
+  const expected = callsign.toUpperCase().trim();
+  try {
+    console.log(`🌐 Querying airplanes.live for callsign: ${expected}`);
+    const res = await axios.get(`https://api.airplanes.live/v2/callsign/${expected}`, { timeout: 6000 });
+    const ac = res.data?.ac || [];
+    if (ac.length === 0) return null;
+
+    const a = ac[0];
+    if (a.lat == null || a.lon == null || a.gnd) return null;
+
+    return {
+      callsign:    expected,
+      country:     a.r || "Unknown",
+      latitude:    parseFloat(a.lat),
+      longitude:   parseFloat(a.lon),
+      altitude:    a.alt_baro != null ? Math.round(a.alt_baro * 0.3048) : 0, // ft -> m
+      velocity:    a.gs != null ? Math.round(a.gs * 1.852) : 0,             // kts -> km/h
+      heading:     a.track != null ? Math.round(a.track) : 0,
+      icao24:      a.hex || "unknown",
+      _isDemoData: false,
+    };
+  } catch (err) {
+    console.error(`❌ airplanes.live callsign fetch failed:`, err.message);
+    return null;
+  }
+}
+
 // ─── OpenSky query ────────────────────────────────────────────────────────────
 async function fetchFromOpenSky(callsign) {
   const expected = callsign.toUpperCase().trim();
@@ -539,71 +567,80 @@ exports.getFlightData = async (req, res) => {
       return res.json(cached.data);
     }
 
-    // ── Try OpenSky ──
+    // ── Try airplanes.live first, then OpenSky fallback ──
+    let liveData = null;
     try {
-      console.log(`🌐 Querying OpenSky for callsign: ${callsign}`);
-      const liveData = await fetchFromOpenSky(callsign);
+      liveData = await fetchFromAirplanesLiveCallsign(callsign);
+    } catch (e) {
+      console.warn("airplanes.live callsign query failed, trying OpenSky...");
+    }
 
-      if (liveData) {
-        // ── Step 1: Instant departure fallback (synchronous, <5ms) ──────────
-        // Always set departure from nearest airport immediately so response is never blank.
-        // Async enrichments below will override this with better data if available.
-        if (liveData.latitude && liveData.longitude) {
-          const nearDep = findNearestAirport(liveData.latitude, liveData.longitude, 250);
-          if (nearDep) {
-            liveData.departure = {
-              lat:  nearDep.lat,
-              lng:  nearDep.lng,
-              iata: nearDep.iata,
-              name: `${nearDep.name}${nearDep.city ? ', ' + nearDep.city : ''}`,
-              _inferred: true,   // flag so frontend knows this is a best-guess
-            };
-            console.log(`🛫 Nearest airport: ${nearDep.iata} (${Math.round(haversineKm(liveData.latitude, liveData.longitude, nearDep.lat, nearDep.lng))}km)`);
-          }
+    if (!liveData) {
+      try {
+        console.log(`🌐 Querying OpenSky for callsign: ${callsign}`);
+        liveData = await fetchFromOpenSky(callsign);
+      } catch (apiErr) {
+        console.error(`❌ OpenSky error: ${apiErr.message}`);
+      }
+    }
+
+    if (liveData) {
+      // ── Step 1: Instant departure fallback (synchronous, <5ms) ──────────
+      // Always set departure from nearest airport immediately so response is never blank.
+      // Async enrichments below will override this with better data if available.
+      if (liveData.latitude && liveData.longitude) {
+        const nearDep = findNearestAirport(liveData.latitude, liveData.longitude, 250);
+        if (nearDep) {
+          liveData.departure = {
+            lat:  nearDep.lat,
+            lng:  nearDep.lng,
+            iata: nearDep.iata,
+            name: `${nearDep.name}${nearDep.city ? ', ' + nearDep.city : ''}`,
+            _inferred: true,   // flag so frontend knows this is a best-guess
+          };
+          console.log(`🛫 Nearest airport: ${nearDep.iata} (${Math.round(haversineKm(liveData.latitude, liveData.longitude, nearDep.lat, nearDep.lng))}km)`);
         }
-
-        // ── Step 2: Async enrichments (route, aircraft, track) ───────────────
-        const enrichToken = await getOpenSkyToken();
-        const [route, aircraft, waypoints] = await Promise.all([
-          getFlightRoute(callsign).catch(() => null),
-          liveData.icao24 ? getAircraftDetails(liveData.icao24).catch(() => null) : null,
-          liveData.icao24 ? getFlightTrack(liveData.icao24, enrichToken).catch(() => null) : null,
-        ]);
-
-        // AviationStack route overrides the inferred departure/arrival (best data)
-        if (route) {
-          liveData.departure = route.departure;
-          liveData.arrival   = route.arrival;
-          console.log(`🗺️  Route: ${route.departure.iata} → ${route.arrival.iata}`);
-        }
-        if (aircraft) {
-          liveData.aircraft = aircraft;
-          console.log(`✈️  Aircraft: ${aircraft.manufacturer} ${aircraft.type} (${aircraft.registration})`);
-        }
-        if (waypoints && waypoints.length > 1) {
-          liveData.waypoints = waypoints;
-          console.log(`📍 Track: ${waypoints.length} historical waypoints`);
-
-          // Track first waypoint overrides position-based inferred departure (more accurate)
-          if (liveData.departure?._inferred) {
-            const [wLat, wLon] = waypoints[0];
-            const depAirport = findNearestAirport(wLat, wLon, 120);
-            if (depAirport) {
-              liveData.departure = { lat: depAirport.lat, lng: depAirport.lng, iata: depAirport.iata, name: `${depAirport.name}${depAirport.city ? ', ' + depAirport.city : ''}` };
-              console.log(`🛫 Departure from track: ${depAirport.iata}`);
-            }
-          }
-        }
-
-        flightCache.set(callsign, { data: liveData, timestamp: Date.now() });
-        console.log(`✅ LIVE: ${liveData.callsign} @ [${liveData.latitude.toFixed(4)}, ${liveData.longitude.toFixed(4)}]`);
-        return res.json(liveData);
       }
 
-      console.log(`⚠️ OpenSky: no airborne result for "${callsign}" — trying demo…`);
-    } catch (apiErr) {
-      console.error(`❌ OpenSky error: ${apiErr.message}`);
+      // ── Step 2: Async enrichments (route, aircraft, track) ───────────────
+      const enrichToken = await getOpenSkyToken();
+      const [route, aircraft, waypoints] = await Promise.all([
+        getFlightRoute(callsign).catch(() => null),
+        liveData.icao24 ? getAircraftDetails(liveData.icao24).catch(() => null) : null,
+        liveData.icao24 ? getFlightTrack(liveData.icao24, enrichToken).catch(() => null) : null,
+      ]);
+
+      // AviationStack route overrides the inferred departure/arrival (best data)
+      if (route) {
+        liveData.departure = route.departure;
+        liveData.arrival   = route.arrival;
+        console.log(`🗺️  Route: ${route.departure.iata} → ${route.arrival.iata}`);
+      }
+      if (aircraft) {
+        liveData.aircraft = aircraft;
+        console.log(`✈️  Aircraft: ${aircraft.manufacturer} ${aircraft.type} (${aircraft.registration})`);
+      }
+      if (waypoints && waypoints.length > 1) {
+        liveData.waypoints = waypoints;
+        console.log(`📍 Track: ${waypoints.length} historical waypoints`);
+
+        // Track first waypoint overrides position-based inferred departure (more accurate)
+        if (liveData.departure?._inferred) {
+          const [wLat, wLon] = waypoints[0];
+          const depAirport = findNearestAirport(wLat, wLon, 120);
+          if (depAirport) {
+            liveData.departure = { lat: depAirport.lat, lng: depAirport.lng, iata: depAirport.iata, name: `${depAirport.name}${depAirport.city ? ', ' + depAirport.city : ''}` };
+            console.log(`🛫 Departure from track: ${depAirport.iata}`);
+          }
+        }
+      }
+
+      flightCache.set(callsign, { data: liveData, timestamp: Date.now() });
+      console.log(`✅ LIVE: ${liveData.callsign} @ [${liveData.latitude.toFixed(4)}, ${liveData.longitude.toFixed(4)}]`);
+      return res.json(liveData);
     }
+
+    console.log(`⚠️ No live airborne result found for "${callsign}" — trying demo…`);
 
     // ── Demo / generic fallback ──
     const demoData = getDemoFlightData(raw, icaoPrefix) || getDemoFlightData(callsign, icaoPrefix);
@@ -622,67 +659,104 @@ exports.getFlightData = async (req, res) => {
   }
 };
 
-// Radar response cache — keeps planes on screen even during 429 rate-limit windows
+
+// Radar response cache — keeps planes on screen even when upstream is slow
 const radarCache = new Map(); // key: "lamin,lomin,lamax,lomax" → { flights, timestamp }
 const RADAR_CACHE_TTL = 90_000; // 90 seconds
 
+// ─── airplanes.live fetch (primary radar source, no key required) ─────────────
+async function fetchFromAirplanesLive(lamin, lomin, lamax, lomax) {
+  const clat      = (parseFloat(lamin) + parseFloat(lamax)) / 2;
+  const clon      = (parseFloat(lomin) + parseFloat(lomax)) / 2;
+  const latSpan   = (parseFloat(lamax) - parseFloat(lamin)) / 2;
+  const lonSpan   = (parseFloat(lomax) - parseFloat(lomin)) / 2;
+  const radiusNm  = Math.min(250, Math.round(Math.sqrt(latSpan ** 2 + lonSpan ** 2) * 60));
+
+  const url = `https://api.airplanes.live/v2/point/${clat.toFixed(4)}/${clon.toFixed(4)}/${radiusNm}`;
+  const res = await axios.get(url, { timeout: 7000 });
+  const ac  = res.data?.ac || [];
+
+  return ac
+    .filter(a => a.lat != null && a.lon != null && !a.gnd)
+    .map(a => ({
+      icao24:    a.hex   || "",
+      callsign:  (a.flight || a.hex || "").trim().toUpperCase(),
+      country:   a.r     || "Unknown",
+      latitude:  parseFloat(a.lat),
+      longitude: parseFloat(a.lon),
+      altitude:  a.alt_baro != null ? Math.round(a.alt_baro * 0.3048) : 0,
+      velocity:  a.gs    != null ? Math.round(a.gs * 1.852) : 0,
+      heading:   a.track != null ? Math.round(a.track) : 0,
+      type:      a.t     || "",
+    }));
+}
+
 exports.getRadarFlights = async (req, res) => {
-  const { lamin, lomin, lamax, lomax } = req.query;  // outside try so catch can access for cache key
+  const { lamin, lomin, lamax, lomax } = req.query;
   if (!lamin || !lomin || !lamax || !lomax) {
     return res.status(400).json({ error: "Bounding box parameters (lamin, lomin, lamax, lomax) required" });
   }
+
+  const cacheKey = `${lamin},${lomin},${lamax},${lomax}`;
+
   try {
+    // ── Primary: airplanes.live ──────────────────────────────────────────────
+    console.log(`🌐 airplanes.live radar: [${lamin}, ${lomin}] → [${lamax}, ${lomax}]`);
+    const flights = await fetchFromAirplanesLive(lamin, lomin, lamax, lomax);
 
-    const token = await getOpenSkyToken();
-    const config = {
-      timeout: 10_000,
-      params: {
-        lamin: parseFloat(lamin),
-        lomin: parseFloat(lomin),
-        lamax: parseFloat(lamax),
-        lomax: parseFloat(lomax)
-      },
-      headers: {}
-    };
-
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    console.log(`🌐 Bounding Box radar query: [${lamin}, ${lomin}] -> [${lamax}, ${lomax}]`);
-    const response = await axios.get("https://opensky-network.org/api/states/all", config);
-
-    const states = response.data?.states || [];
-    const flights = states
-      .filter(s => s[1] && s[1].trim() && !s[8] && s[6] != null && s[5] != null)
-      .map(s => ({
-        icao24: s[0],
-        callsign: s[1].trim().toUpperCase(),
-        country: s[2] || "Unknown",
-        longitude: parseFloat(s[5]),
-        latitude: parseFloat(s[6]),
-        altitude: s[7] != null ? Math.round(s[7]) : 0,
-        velocity: s[9] != null ? Math.round(s[9] * 3.6) : 0,
-        heading: s[10] != null ? Math.round(s[10]) : 0
-      }))
-      .slice(0, 150);
-
-    // Cache the successful response so planes stay visible during rate-limit windows
-    const cacheKey = `${lamin},${lomin},${lamax},${lomax}`;
+    // Cache successful response
     radarCache.set(cacheKey, { flights, timestamp: Date.now() });
+    console.log(`` + `✅ airplanes.live: ${flights.length} aircraft in viewport`);
+    return res.json(flights);
 
-    res.json(flights);
-  } catch (err) {
-    console.error("Radar query error:", err.message);
+  } catch (primaryErr) {
+    console.warn("airplanes.live unavailable, trying OpenSky fallback:", primaryErr.message);
 
-    // On 429 or any error, serve the last known good response instead of wiping the map
-    const cacheKey = `${lamin},${lomin},${lamax},${lomax}`;
-    const cached = radarCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < RADAR_CACHE_TTL) {
-      console.log(`📦 Radar cache fallback: returning ${cached.flights.length} cached planes`);
-      return res.json(cached.flights);
+    try {
+      // ── Fallback: OpenSky ────────────────────────────────────────────────
+      const token = await getOpenSkyToken();
+      const config = {
+        timeout: 10_000,
+        params: {
+          lamin: parseFloat(lamin),
+          lomin: parseFloat(lomin),
+          lamax: parseFloat(lamax),
+          lomax: parseFloat(lomax)
+        },
+        headers: {}
+      };
+      if (token) config.headers.Authorization = `Bearer ${token}`;
+
+      const response = await axios.get("https://opensky-network.org/api/states/all", config);
+      const states   = response.data?.states || [];
+      const flights  = states
+        .filter(s => s[1] && s[1].trim() && !s[8] && s[6] != null && s[5] != null)
+        .map(s => ({
+          icao24:    s[0],
+          callsign:  s[1].trim().toUpperCase(),
+          country:   s[2] || "Unknown",
+          longitude: parseFloat(s[5]),
+          latitude:  parseFloat(s[6]),
+          altitude:  s[7] != null ? Math.round(s[7]) : 0,
+          velocity:  s[9] != null ? Math.round(s[9] * 3.6) : 0,
+          heading:   s[10] != null ? Math.round(s[10]) : 0,
+        }))
+        .slice(0, 200);
+
+      radarCache.set(cacheKey, { flights, timestamp: Date.now() });
+      return res.json(flights);
+
+    } catch (fallbackErr) {
+      console.error("OpenSky fallback also failed:", fallbackErr.message);
+
+      // ── Last resort: stale cache ─────────────────────────────────────────
+      const cached = radarCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < RADAR_CACHE_TTL) {
+        console.log(`📦 Radar stale cache: ${cached.flights.length} planes`);
+        return res.json(cached.flights);
+      }
+
+      return res.json([]); // blank only if everything failed and cache is gone
     }
-
-    res.json([]); // only wipe if cache is stale too
   }
 };
