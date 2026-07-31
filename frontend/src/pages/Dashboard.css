@@ -1437,6 +1437,19 @@ body {
   position: relative;
   cursor: pointer;
   pointer-events: auto !important;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hide mini plane tooltips by default and display them on hover */
+.mini-plane-marker .globe-tooltip {
+  display: none !important;
+}
+.mini-plane-marker:hover .globe-tooltip {
+  display: block !important;
 }
 
 .globe-active-plane {
@@ -1497,7 +1510,7 @@ body {
 /* ─── TOOLTIP OVERLAYS ON GLOBE MARKERS ──────────────────────────────────── */
 .globe-tooltip {
   position: absolute;
-  left: 38px;
+  left: 42px;
   top: 50%;
   transform: translateY(-50%);
   min-width: 160px;

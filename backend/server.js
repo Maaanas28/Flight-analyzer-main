@@ -160,7 +160,7 @@ async function pollOpenSkyStates() {
 function isPlaneInBbox(plane, box) {
   const { latitude: lat, longitude: lon } = plane;
   if (box.lomin > box.lomax) {
-    return lat >= box.lamin && lat <= box.max && (lon >= box.lomin || lon <= box.lomax);
+    return lat >= box.lamin && lat <= box.lamax && (lon >= box.lomin || lon <= box.lomax);
   }
   return lat >= box.lamin && lat <= box.lamax && lon >= box.lomin && lon <= box.lomax;
 }

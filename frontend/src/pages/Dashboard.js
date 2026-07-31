@@ -203,7 +203,7 @@ function buildMiniPlaneEl(f, onClickFn, isConflict) {
   const spdKts= Math.round((f.velocity || 0) / 1.852);
 
   const wrapper = document.createElement("div");
-  wrapper.className = `globe-plane-marker${isConflict ? " conflict" : ""}`;
+  wrapper.className = `globe-plane-marker mini-plane-marker${isConflict ? " conflict" : ""}`;
 
   const dot = document.createElement("div");
   dot.className = "globe-mini-plane";
@@ -212,7 +212,6 @@ function buildMiniPlaneEl(f, onClickFn, isConflict) {
 
   const tip = document.createElement("div");
   tip.className = "globe-tooltip";
-  tip.style.display = "none";
   tip.innerHTML = `
     <div class="globe-tooltip-callsign">${f.callsign}</div>
     <div class="globe-tooltip-row"><span>ALT</span><span>${altFt} ft</span></div>
@@ -220,8 +219,6 @@ function buildMiniPlaneEl(f, onClickFn, isConflict) {
     <div class="globe-tooltip-row" style="font-size:9px;color:rgba(0,242,254,0.5);margin-top:4px"><span>Click to track</span><span></span></div>
   `;
 
-  wrapper.addEventListener("mouseenter", () => { tip.style.display = "block"; });
-  wrapper.addEventListener("mouseleave", () => { tip.style.display = "none"; });
   wrapper.addEventListener("click", (e) => { e.stopPropagation(); onClickFn(f.callsign, f); });
 
   // Forward wheel events to canvas to ensure smooth globe zooming when cursor is over the mini plane marker
@@ -672,8 +669,8 @@ export default function Dashboard() {
             if (tracked && p.callsign === tracked) continue;
             display.push(p);
           }
-          // Cap at 200 markers — LOD filter in miniMarkerData handles the visual limit
-          setRadarFlights(display.slice(0, 200));
+          // Store all available flight markers — LOD filter in miniMarkerData handles the visual display limit
+          setRadarFlights(display);
         } catch {}
       };
 
@@ -730,7 +727,7 @@ export default function Dashboard() {
       if (Array.isArray(data)) {
         const tracked = flightData?.callsign?.toUpperCase().trim();
         const filtered = tracked ? data.filter(f => f.callsign !== tracked) : data;
-        setRadarFlights(filtered.slice(0, 80));
+        setRadarFlights(filtered);
       }
     } catch { /* fail silently */ }
     finally { setRadarLoading(false); }
