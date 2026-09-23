@@ -1,40 +1,14 @@
 const express = require("express");
-const cors    = require("cors");
 const http    = require("http");
 const { WebSocketServer } = require("ws");
 const axios   = require("axios");
 require("dotenv").config();
 
-const flightRoutes  = require("./routes/flightRoutes");
-const airportRoutes = require("./routes/airportRoutes");
+const app = require("./app");
+const { initDb } = require("./db");
 
-const app    = express();
 const server = http.createServer(app);
 
-app.use(cors());
-app.use(express.json());
-
-app.get("/api/flights/radar", async (req, res) => {
-  const { lamin, lomin, lamax, lomax } = req.query;
-  if (!lamin || !lomin || !lamax || !lomax) {
-    return res.status(400).json({ error: "lamin, lomin, lamax, lomax required" });
-  }
-  try {
-    const box = {
-      lamin: parseFloat(lamin),
-      lomin: parseFloat(lomin),
-      lamax: parseFloat(lamax),
-      lomax: parseFloat(lomax)
-    };
-    const planes = globalOpenSkyStates.filter(p => isPlaneInBbox(p, box));
-    res.json(planes);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.use("/api/flights",  flightRoutes);
-app.use("/api/airports", airportRoutes);
 
 // ─── WebSocket server ─────────────────────────────────────────────────────────
 const wss = new WebSocketServer({ server, path: "/ws/radar" });
@@ -223,8 +197,11 @@ setInterval(() => {
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`✈️  Flight backend running on port ${PORT}`);
   console.log(`🔌 WebSocket radar available at ws://localhost:${PORT}/ws/radar`);
   console.log("🌐 Centralized OpenSky global polling setup active.");
+  
+  // Initialize PostgreSQL database & verify schema
+  await initDb();
 });

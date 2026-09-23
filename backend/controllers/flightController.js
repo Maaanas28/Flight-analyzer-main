@@ -1,4 +1,5 @@
 const axios = require("axios");
+const { logTelemetryPoint } = require("../services/telemetryLogger");
 
 // ─── IATA airline code → ICAO radio prefix ───────────────────────────────────
 const IATA_TO_ICAO = {
@@ -360,8 +361,9 @@ function simulateFlight(callsign, start, end, country, cruiseAlt, cruiseSpeed) {
 }
 
 function getDemoFlightData(query, icaoPrefix) {
+  const callsign = toOpenSkyCallsign(query);
   // 1. Check named demo routes first
-  const key   = DEMO_ALIASES[query] || query;
+  const key   = DEMO_ALIASES[query] || DEMO_ALIASES[callsign] || callsign;
   const route = demoFlightRoutes[key];
   if (route) {
     return simulateFlight(
@@ -371,7 +373,7 @@ function getDemoFlightData(query, icaoPrefix) {
   }
 
   // 2. Generic fallback: if we know the airline's hub, simulate a plausible route
-  const prefix = icaoPrefix || query.match(/^([A-Z]{3})/)?.[1];
+  const prefix = icaoPrefix || callsign.match(/^([A-Z]{3})/)?.[1];
   const hub    = AIRLINE_HUBS[prefix];
   if (hub && prefix) {
     // Simulate a flight from hub to a nearby major city
@@ -387,7 +389,7 @@ function getDemoFlightData(query, icaoPrefix) {
     const dest = destinations[hash % destinations.length];
 
     return simulateFlight(
-      query,
+      callsign,
       { lat: hub.lat, lng: hub.lng },
       dest,
       hub.country,
@@ -397,6 +399,7 @@ function getDemoFlightData(query, icaoPrefix) {
 
   return null;
 }
+
 
 // ─── OpenSky OAuth2 Token Management ──────────────────────────────────────────
 let tokenCache = {
@@ -637,6 +640,18 @@ exports.getFlightData = async (req, res) => {
 
       flightCache.set(callsign, { data: liveData, timestamp: Date.now() });
       console.log(`✅ LIVE: ${liveData.callsign} @ [${liveData.latitude.toFixed(4)}, ${liveData.longitude.toFixed(4)}]`);
+      
+      // Async telemetry logging to PostgreSQL
+      logTelemetryPoint({
+        flight_id: liveData.callsign,
+        icao24: liveData.icao24,
+        latitude: liveData.latitude,
+        longitude: liveData.longitude,
+        altitude_m: liveData.altitude,
+        speed_kmh: liveData.velocity,
+        heading: liveData.heading
+      }).catch(err => console.error("Telemetry log error:", err.message));
+
       return res.json(liveData);
     }
 
@@ -646,6 +661,18 @@ exports.getFlightData = async (req, res) => {
     const demoData = getDemoFlightData(raw, icaoPrefix) || getDemoFlightData(callsign, icaoPrefix);
     if (demoData) {
       console.log(`📺 DEMO: ${demoData.callsign}`);
+      
+      // Async telemetry logging for demo flight to PostgreSQL
+      logTelemetryPoint({
+        flight_id: demoData.callsign,
+        icao24: demoData.icao24,
+        latitude: demoData.latitude,
+        longitude: demoData.longitude,
+        altitude_m: demoData.altitude,
+        speed_kmh: demoData.velocity,
+        heading: demoData.heading
+      }).catch(err => console.error("Telemetry log error:", err.message));
+
       return res.json(demoData);
     }
 
@@ -759,4 +786,14 @@ exports.getRadarFlights = async (req, res) => {
       return res.json([]); // blank only if everything failed and cache is gone
     }
   }
+};
+
+module.exports = {
+  getFlightData: exports.getFlightData,
+  getRadarFlights: exports.getRadarFlights,
+  haversineKm,
+  findNearestAirport,
+  toOpenSkyCallsign,
+  simulateFlight,
+  getDemoFlightData
 };

@@ -1,4 +1,4 @@
-﻿# ✈️ AERO-CORE — Flight Command Center (Orbital Edition)
+# ✈️ AERO-CORE — Flight Command Center (Orbital Edition)
 
 > **A production-grade, real-time flight intelligence platform** combining live ADS-B telemetry, 3D globe visualization, AI-assisted conflict detection, manual autopilot override simulation, storm weather radar, and carbon efficiency analytics — all inside a single glassmorphic cyber-HUD interface.
 
@@ -204,6 +204,50 @@ For each pair (A, B):
 
 ---
 
+## 🧪 Automated Testing Setup
+
+The Flight Command Center includes a comprehensive automated test suite built with **Jest** and **Supertest**.
+
+### Testing Framework & Architecture
+- **Test Runner**: Jest (Node.js test runner, assertion library, and code coverage tool)
+- **API Integration Testing**: Supertest (Express HTTP integration assertions without port binding)
+- **Mocks**: Deterministic Jest mocks (`jest.mock('axios')`, `jest.spyOn(db, 'isDbConnected')`) to ensure 100% offline test execution without relying on live external aviation APIs or requiring an active PostgreSQL database.
+
+### Test Breakdown
+- **Unit Tests**:
+  - `haversine.test.js`: Validates Haversine great-circle distance math across identical coordinates, short proximity (<10 km), transoceanic city pairs, and edge coordinate boundaries.
+  - `conflictDetection.test.js`: Validates ATC separation minima conflict detection (5 NM horizontal, 1000 ft vertical), 5-minute dead-reckoning position projections (`projectPosition`), multi-aircraft pairwise checks, and filtering of invalid/null coordinates.
+  - `flightData.test.js`: Validates IATA-to-ICAO callsign format transformation (`BA112` -> `BAW112`), nearest airport coordinate lookup (`findNearestAirport`), demo flight simulation (`simulateFlight`), and mock airport schedule generation (`getMockSchedules`).
+  - `telemetryLogger.test.js`: Validates in-memory fallback buffers when PostgreSQL is disconnected and database SQL queries when PostgreSQL is connected.
+- **Integration Tests**:
+  - `flights.integration.test.js`: Validates `/api/flights/:flightNumber` search, callsign transformation, demo fallbacks, and `/api/flights/radar` bounding box queries with 400 Bad Request parameter validation.
+  - `airports.integration.test.js`: Validates `/api/airports/:code/flights` departure/arrival schedule retrieval and 400 Bad Request error handling for invalid airport codes.
+  - `history.integration.test.js`: Validates `/api/history/playback/:callsign`, `/api/history/conflicts` with limit pagination, and `/api/history/conflict` POST logging with validation.
+
+### Test Commands
+
+Run commands from the repository root or backend directory:
+
+```bash
+# Run complete test suite
+npm test
+
+# Run unit tests only
+npm run test:unit
+
+# Run integration tests only
+npm run test:integration
+
+# Generate code coverage report
+npm run test:coverage
+```
+
+### Database Testing & Isolation
+- By default, test suites run in **isolated in-memory mode** (`isDbConnected() === false`).
+- Database query dispatching is verified using mocked PostgreSQL connection pools (`db.pool.query`), ensuring tests never corrupt production or local development PostgreSQL databases.
+
+---
+
 ## 🔑 Environment Setup
 
 Create `backend/.env`:
@@ -283,3 +327,4 @@ cd frontend && npm install && npm start
 Built as a portfolio demonstration of full-stack engineering, real-time systems design, geospatial mathematics, and advanced UI/UX.
 
 - GitHub: [Maaanas28/Flight-analyzer-main](https://github.com/Maaanas28/Flight-analyzer-main)
+

@@ -35,6 +35,20 @@ const STORM_ZONES = [
   { id: "storm-4", name: "US East Coast Corridor", lat: 38.8977, lng: -77.0365, radiusKm: 500, maxRadius: 9, speed: 2.0, color: "rgba(16, 185, 129, 0.7)", severity: "MODERATE", intensity: "MODERATE TURBULENCE" },
 ];
 
+const MAJOR_AIRPORTS = [
+  { iata: "LHR", name: "London Heathrow", lat: 51.4700, lng: -0.4543, country: "UK", color: "#00f2fe", alt: 0.14 },
+  { iata: "JFK", name: "New York JFK", lat: 40.6413, lng: -73.7781, country: "USA", color: "#00f2fe", alt: 0.14 },
+  { iata: "DXB", name: "Dubai Int", lat: 25.2532, lng: 55.3657, country: "UAE", color: "#f5af19", alt: 0.16 },
+  { iata: "BOM", name: "Mumbai Chhatrapati", lat: 19.0896, lng: 72.8656, country: "India", color: "#00f2fe", alt: 0.14 },
+  { iata: "DEL", name: "Delhi Indira Gandhi", lat: 28.5562, lng: 77.1000, country: "India", color: "#00f2fe", alt: 0.14 },
+  { iata: "SIN", name: "Singapore Changi", lat: 1.3644, lng: 103.9915, country: "Singapore", color: "#a855f7", alt: 0.15 },
+  { iata: "HND", name: "Tokyo Haneda", lat: 35.5494, lng: 139.7798, country: "Japan", color: "#00f2fe", alt: 0.15 },
+  { iata: "SYD", name: "Sydney Kingsford", lat: -33.9399, lng: 151.1753, country: "Australia", color: "#f5af19", alt: 0.14 },
+  { iata: "FRA", name: "Frankfurt Main", lat: 50.0379, lng: 8.5622, country: "Germany", color: "#00f2fe", alt: 0.14 },
+  { iata: "CDG", name: "Paris Charles de Gaulle", lat: 49.0097, lng: 2.5479, country: "France", color: "#00f2fe", alt: 0.14 },
+  { iata: "LAX", name: "Los Angeles Int", lat: 33.9416, lng: -118.4085, country: "USA", color: "#a855f7", alt: 0.15 }
+];
+
 function buildStormMarkerEl(storm) {
   const el = document.createElement("div");
   el.className = `globe-storm-marker ${storm.severity.toLowerCase()}`;
@@ -166,6 +180,8 @@ function buildActivePlaneEl(flightData, onStopClick, isConflict) {
   p1.className = "globe-active-pulse";
   const p2 = document.createElement("div");
   p2.className = "globe-active-pulse ring2";
+  const reticle = document.createElement("div");
+  reticle.className = "globe-tactical-reticle";
 
   const svgWrap = document.createElement("div");
   svgWrap.className = `globe-active-svg${isConflict ? " conflict" : (isDemo ? " demo" : "")}`;
@@ -173,6 +189,7 @@ function buildActivePlaneEl(flightData, onStopClick, isConflict) {
 
   plane.appendChild(p1);
   plane.appendChild(p2);
+  plane.appendChild(reticle);
   plane.appendChild(svgWrap);
 
   // Tooltip overlay
@@ -253,11 +270,24 @@ export default function Dashboard() {
   const [timeStr, setTimeStr]         = useState("");
   const [showChartPanel, setShowChartPanel] = useState(true);
   const [globeAlt, setGlobeAlt]       = useState(2.5);
+  const [isConflictPanelMinimized, setIsConflictPanelMinimized] = useState(false);
 
   const [radarFlights, setRadarFlights] = useState([]);
   const [radarLoading, setRadarLoading] = useState(false);
 
-  const [showWeather, setShowWeather] = useState(false);
+  const [showWeather, setShowWeather]   = useState(false);
+  const [showDensity, setShowDensity]   = useState(true);
+  const [showAirports, setShowAirports] = useState(true);
+
+  const [globeTheme, setGlobeTheme]       = useState("matte"); // "matte" | "cyber" | "night"
+  const [countriesData, setCountriesData] = useState([]);
+
+  useEffect(() => {
+    fetch("https://raw.githubusercontent.com/vasturiano/react-globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson")
+      .then(res => res.json())
+      .then(data => setCountriesData(data.features || []))
+      .catch(() => {});
+  }, []);
 
   const [airportCode, setAirportCode]         = useState("");
   const [airportSchedules, setAirportSchedules] = useState(null);
@@ -1005,6 +1035,18 @@ export default function Dashboard() {
     color: flightData?._isDemoData ? "#f5af19" : "#a855f7",
   }] : [];
 
+  // Departure & Arrival Airport Pulsing Rings
+  const airportRings = useMemo(() => {
+    const list = [];
+    if (demoRoute && demoRoute.start) {
+      list.push({ id: "dep-ring", lat: demoRoute.start[0], lng: demoRoute.start[1], color: "rgba(0, 242, 254, 0.9)", maxRadius: 5, speed: 2.5 });
+    }
+    if (demoRoute && demoRoute.end) {
+      list.push({ id: "arr-ring", lat: demoRoute.end[0], lng: demoRoute.end[1], color: "rgba(245, 175, 25, 0.9)", maxRadius: 5, speed: 2.5 });
+    }
+    return list;
+  }, [demoRoute]);
+
   // HTML markers data: active plane + mini radar planes
   // We use separate htmlElementsData arrays for cleaner code
   const activeMarkerData = flightData && !isNaN(flightData.latitude)
@@ -1542,8 +1584,23 @@ export default function Dashboard() {
 
       {/* ── MAP CONTROLS ───────────────────────────────────────────────────── */}
       <div className="map-controls-deck">
+        <button className={`control-deck-btn ${globeTheme === "matte" ? "active" : ""}`} onClick={() => setGlobeTheme("matte")}>
+          🎮 MATTE BLACK
+        </button>
+        <button className={`control-deck-btn ${globeTheme === "cyber" ? "active" : ""}`} onClick={() => setGlobeTheme("cyber")}>
+          🌐 CYBER GRID
+        </button>
+        <button className={`control-deck-btn ${globeTheme === "night" ? "active" : ""}`} onClick={() => setGlobeTheme("night")}>
+          🌙 NIGHT VISION
+        </button>
         <button className={`control-deck-btn ${showWeather ? "active" : ""}`} onClick={() => setShowWeather(v => !v)}>
           🌧️ {showWeather ? "WEATHER ON" : "WEATHER RADAR"}
+        </button>
+        <button className={`control-deck-btn ${showDensity ? "active" : ""}`} onClick={() => setShowDensity(v => !v)}>
+          📊 {showDensity ? "DENSITY ON" : "3D DENSITY"}
+        </button>
+        <button className={`control-deck-btn ${showAirports ? "active" : ""}`} onClick={() => setShowAirports(v => !v)}>
+          🏢 {showAirports ? "BEACONS ON" : "3D AIRPORTS"}
         </button>
       </div>
 
@@ -1563,34 +1620,47 @@ export default function Dashboard() {
 
       {/* ── CONFLICT ALERT PANEL ───────────────────────────────────────────── */}
       {conflicts.length > 0 && (
-        <div className="conflict-alert-panel">
+        <div className={`conflict-alert-panel${isConflictPanelMinimized ? " minimized" : ""}`}>
           <div className="conflict-alert-header">
-            <span className="conflict-alert-icon">⚠</span>
-            <span className="conflict-alert-title">SEPARATION ALERT</span>
+            <div className="conflict-alert-title-wrap">
+              <span className="conflict-alert-icon">⚠</span>
+              <span className="conflict-alert-title">
+                SEPARATION ALERT ({conflicts.length})
+              </span>
+            </div>
+            <button
+              className="conflict-panel-toggle-btn"
+              onClick={() => setIsConflictPanelMinimized(!isConflictPanelMinimized)}
+              title={isConflictPanelMinimized ? "Expand Conflict Panel" : "Minimize Conflict Panel"}
+            >
+              {isConflictPanelMinimized ? "▲ EXPAND" : "▼ MINIMIZE"}
+            </button>
           </div>
-          <div className="conflict-alert-list">
-            {conflicts.map(c => {
-              const minutes = Math.floor(c.timeToCpaSecs / 60);
-              const seconds = c.timeToCpaSecs % 60;
-              const timeStr = c.timeToCpaSecs === 0
-                ? "IMMEDIATE"
-                : `CPA IN ${minutes}M ${seconds}S`;
+          {!isConflictPanelMinimized && (
+            <div className="conflict-alert-list">
+              {conflicts.map(c => {
+                const minutes = Math.floor(c.timeToCpaSecs / 60);
+                const seconds = c.timeToCpaSecs % 60;
+                const timeStr = c.timeToCpaSecs === 0
+                  ? "IMMEDIATE"
+                  : `CPA IN ${minutes}M ${seconds}S`;
 
-              return (
-                <div key={`${c.f1Callsign}-${c.f2Callsign}`} className="conflict-alert-row">
-                  <span className="conflict-aircraft-pair">
-                    {c.f1Callsign} / {c.f2Callsign}
-                  </span>
-                  <span className="conflict-separator">|</span>
-                  <span className="conflict-stats">
-                    {c.currentDistanceNM.toFixed(1)} NM / {Math.round(c.currentAltDiffFt)} FT
-                  </span>
-                  <span className="conflict-separator">|</span>
-                  <span className="conflict-cpa">{timeStr}</span>
-                </div>
-              );
-            })}
-          </div>
+                return (
+                  <div key={`${c.f1Callsign}-${c.f2Callsign}`} className="conflict-alert-row">
+                    <span className="conflict-aircraft-pair">
+                      {c.f1Callsign} / {c.f2Callsign}
+                    </span>
+                    <span className="conflict-separator">|</span>
+                    <span className="conflict-stats">
+                      {c.currentDistanceNM.toFixed(1)} NM / {Math.round(c.currentAltDiffFt)} FT
+                    </span>
+                    <span className="conflict-separator">|</span>
+                    <span className="conflict-cpa">{timeStr}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1623,15 +1693,22 @@ export default function Dashboard() {
           width={dims.w}
           height={dims.h}
 
-          // ─── Earth textures ─────────────────────────────────────────────
-          globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
+          // ─── Earth textures & Theme ─────────────────────────────────────
+          globeImageUrl={globeTheme === "night" ? "//unpkg.com/three-globe/example/img/earth-night.jpg" : "//unpkg.com/three-globe/example/img/earth-dark.jpg"}
           bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
           backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
 
           // ─── Atmosphere rim ─────────────────────────────────────────────
           showAtmosphere={true}
-          atmosphereColor="#00c8ff"
-          atmosphereAltitude={0.18}
+          atmosphereColor={globeTheme === "cyber" ? "#00f2fe" : (globeTheme === "matte" ? "#f5af19" : "#00c8ff")}
+          atmosphereAltitude={globeTheme === "cyber" ? 0.28 : 0.16}
+
+          // ─── Stealth Matte Black / Cyber Country Wireframe Polygons ──────
+          polygonsData={globeTheme !== "night" ? countriesData : []}
+          polygonCapColor={() => globeTheme === "matte" ? "rgba(18, 18, 22, 0.95)" : (globeTheme === "cyber" ? "rgba(0, 242, 254, 0.08)" : "rgba(245, 175, 25, 0.08)")}
+          polygonSideColor={() => globeTheme === "cyber" ? "rgba(0, 242, 254, 0.2)" : "rgba(245, 175, 25, 0.25)"}
+          polygonStrokeColor={() => globeTheme === "cyber" ? "#00f2fe" : "#f5af19"}
+          polygonAltitude={0.008}
 
           // ─── Camera events ──────────────────────────────────────────────
           onZoom={handleGlobeZoom}
@@ -1666,14 +1743,35 @@ export default function Dashboard() {
           pathStroke={0.35}
           pathTransitionDuration={0}
 
-          // ─── Weather Radar Storm Rings ──────────────────────────────────
-          ringsData={showWeather ? STORM_ZONES : []}
+          // ─── Weather & Airport Radar Storm Rings ──────────────────────────
+          ringsData={showWeather ? [...STORM_ZONES, ...airportRings] : airportRings}
           ringLat={d => d.lat}
           ringLng={d => d.lng}
           ringColor={d => d.color}
           ringMaxRadius={d => d.maxRadius}
           ringPropagationSpeed={d => d.speed}
           ringRepeatNum={2}
+
+          // ─── 3D Major Airport Beacons ────────────────────────────────────
+          pointsData={showAirports ? MAJOR_AIRPORTS : []}
+          pointLat={d => d.lat}
+          pointLng={d => d.lng}
+          pointColor={d => d.color}
+          pointAltitude={d => d.alt}
+          pointRadius={0.4}
+          pointResolution={12}
+          pointLabel={d => `<div style="background:rgba(6,12,24,0.92);border:1px solid ${d.color};padding:5px 10px;border-radius:4px;font-family:Orbitron,sans-serif;font-size:11px;color:#fff;box-shadow:0 0 12px ${d.color}40;">✈️ <strong>${d.iata}</strong> — ${d.name} (${d.country})</div>`}
+
+          // ─── 3D Air Traffic Density Hexbins ──────────────────────────────
+          hexBinPointsData={showDensity ? radarFlights : []}
+          hexBinPointLat={d => d.latitude}
+          hexBinPointLng={d => d.longitude}
+          hexBinPointWeight={1}
+          hexBinResolution={3}
+          hexMargin={0.15}
+          hexTopColor={() => '#00f2fe'}
+          hexSideColor={() => 'rgba(0,242,254,0.18)'}
+          hexBinAltitude={d => Math.min(d.sumWeight * 0.015, 0.22)}
 
           // ─── Conflict links ──────────────────────────────────────────────
           linksData={conflictLinks}

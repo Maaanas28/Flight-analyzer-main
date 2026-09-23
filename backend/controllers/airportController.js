@@ -126,3 +126,9 @@ exports.getAirportFlights = async (req, res) => {
     res.status(500).json({ error: "Server error: " + err.message });
   }
 };
+
+module.exports = {
+  getAirportFlights: exports.getAirportFlights,
+  getMockSchedules
+};
+

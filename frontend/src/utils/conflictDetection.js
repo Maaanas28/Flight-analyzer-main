@@ -133,3 +133,37 @@ export function detectConflicts(flights, timeWindowMins = 5, stepSecs = 15) {
 
   return conflicts;
 }
+
+// Throttle map to avoid duplicate conflict API reports within 30 seconds for same pair
+const reportedConflictsCache = new Map();
+
+export async function reportConflictAlert(conflict) {
+  if (!conflict || !conflict.f1Callsign || !conflict.f2Callsign) return;
+  
+  const pairKey = [conflict.f1Callsign, conflict.f2Callsign].sort().join("-");
+  const now = Date.now();
+  
+  if (reportedConflictsCache.has(pairKey) && now - reportedConflictsCache.get(pairKey) < 30000) {
+    return; // Throttled
+  }
+  
+  reportedConflictsCache.set(pairKey, now);
+
+  try {
+    await fetch("/api/history/conflict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        aircraft_1: conflict.f1Callsign,
+        aircraft_2: conflict.f2Callsign,
+        horizontal_distance_nm: conflict.currentDistanceNM || conflict.minDistanceNM,
+        vertical_distance_ft: conflict.currentAltDiffFt,
+        severity: (conflict.currentDistanceNM < 3 || conflict.minDistanceNM < 3) ? "CRITICAL" : "WARNING",
+        cpa_seconds: conflict.timeToCpaSecs
+      })
+    });
+  } catch (err) {
+    // Fail silently if offline
+  }
+}
+
