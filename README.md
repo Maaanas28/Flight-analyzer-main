@@ -5,7 +5,6 @@
 [![WebSockets](https://img.shields.io/badge/WebSockets-ws-orange.svg)](https://github.com/websockets/ws)
 [![Three.js](https://img.shields.io/badge/3D%20Globe-Three.js%2Freact--globe.gl-black.svg)](https://github.com/vasturiano/react-globe.gl)
 [![Jest](https://img.shields.io/badge/Testing-Jest%20%26%20Supertest-red.svg)](https://jestjs.io/)
-[![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 
 > A full-stack, real-time Air Traffic Control (ATC) intelligence and flight tracking platform. Integrates live ADS-B telemetry, a 3D WebGL digital globe, automated 4D conflict detection, manual autopilot steering simulation, storm weather radar, and carbon emission analytics.
 
@@ -255,8 +254,4 @@ npm run test:coverage
 2. **WebSocket Data Minimization**: Reduced bandwidth usage by transmitting diff payloads (`updated` / `removed`) instead of full state arrays.
 3. **Smart LOD Rendering**: Scaled aircraft HTML DOM elements dynamically according to globe zoom level to prevent browser DOM overload and maintain smooth 60 FPS animation loops.
 
----
 
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for details.
