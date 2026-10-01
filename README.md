@@ -1,122 +1,114 @@
-# ✈️ AERO-CORE — Flight Command Center (Orbital Edition)
+# ✈️ Flight Command Center (AERO-CORE)
 
-> **A production-grade, real-time flight intelligence platform** combining live ADS-B telemetry, 3D globe visualization, AI-assisted conflict detection, manual autopilot override simulation, storm weather radar, and carbon efficiency analytics — all inside a single glassmorphic cyber-HUD interface.
+[![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-Express-green.svg)](https://nodejs.org/)
+[![WebSockets](https://img.shields.io/badge/WebSockets-ws-orange.svg)](https://github.com/websockets/ws)
+[![Three.js](https://img.shields.io/badge/3D%20Globe-Three.js%2Freact--globe.gl-black.svg)](https://github.com/vasturiano/react-globe.gl)
+[![Jest](https://img.shields.io/badge/Testing-Jest%20%26%20Supertest-red.svg)](https://jestjs.io/)
+[![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 
----
-
-## 🧠 30-Second Elevator Pitch (For Interviews)
-
-*"AERO-CORE is a full-stack real-time flight tracking web application. The frontend is built in React with a 3D interactive WebGL globe. The backend is a Node/Express server that queries the OpenSky Network ADS-B API for live aircraft positions. On top of basic tracking, I built five advanced simulation modules: a conflict detection engine using Haversine + dead-reckoning math to predict collision separation violations, a manual autopilot override console that steers flights in real-time using spherical trigonometry, a live storm weather radar overlay with turbulence detection, a scrolling event logger that narrates everything happening, and a carbon efficiency analytics system that computes real-time fuel burn rate by aircraft type and altitude profile."*
-
----
-
-## 🚀 Feature Set — Complete
-
-### 1. 🌐 Interactive 3D Digital Globe
-- Powered by `react-globe.gl` (a Three.js WebGL wrapper)
-- Rotating earth with realistic atmospheric glow and night-sky background
-- Pan/zoom/rotate dynamically triggers bounding-box radar queries — only fetching aircraft visible in current viewport
-- Custom **scroll-event forwarding** fix: HTML marker elements intercept wheel events and re-dispatch them to the Three.js canvas so zooming always works
-
-### 2. ⚠️ Live Proximity & Conflict Detection
-- **Haversine Formula**: Computes great-circle horizontal distance in km between every visible aircraft pair
-- **Dead-Reckoning Projection**: Each aircraft projected forward in 15-second steps over a 5-minute window using heading and groundspeed
-- **ATC Separation Minima**:
-  - Horizontal: < 5.0 NM (9.26 km)
-  - Vertical: < 1,000 ft
-- **Visual Warnings**: Glowing red dashed arc between conflicting aircraft; plane markers pulse neon red
-- **Glassmorphic HUD Banner**: Shows callsigns, live horizontal/vertical distance, CPA countdown timer
-- **Auto-injected DEMO999**: Ghost aircraft on a crossing course spawned on a 90-second loop for reliable demo conflict triggers
-
-### 3. 🛫 Real-Time Flight Telemetry & Search
-- Search by IATA (`AI101`) or ICAO (`AIC101`) callsign — auto-conversion handled
-- 5-second polling loop with trailing arc path drawn on globe
-- Telemetry cards: Altitude, Speed, Heading, Vertical Speed, Coordinates, ETA, Flight Phase, Aircraft type image
-
-### 4. 🕹️ Autopilot Override Console
-- Simulated ATC manual override panel
-- Toggles between AUTO (server-driven) and MANUAL (user-controlled)
-- Three sliders: Heading (0-360°), Altitude (1,000-45,000 ft), Speed (200-600 kts)
-- Spherical dead-reckoning engine updates coordinates every 2 seconds using inverse Haversine math
-- Projected heading vector arc drawn on globe
-- Slider changes throttled with useRef timestamps to avoid log spam
-
-### 5. 🌩️ 3D Storm Weather Radar
-- 4 active storm cells as pulsing rings on the globe:
-
-  | Storm Cell | Location | Severity |
-  |---|---|---|
-  | Mumbai Region Cell | 19.08°N, 72.86°E | SEVERE |
-  | North Atlantic Corridor | 48°N, 35°W | CRITICAL |
-  | Western Europe Cell | 50°N, 8.56°E | SEVERE |
-  | US East Coast | 38.9°N, 77°W | MODERATE |
-
-- Toggle via WEATHER RADAR button
-- Proximity detection via Haversine checks tracked aircraft against each storm radiusKm boundary
-- On entry → TURBULENCE ALERT HUD + vibrate-panel CSS shake animation
-
-### 6. 📋 Live System Event Logger
-- Fixed-height scrolling monospace terminal, auto-scrolling to latest entries
-- Color-coded levels: danger (storm/conflict), warning (caution), success (cleared), info (locked), control (autopilot)
-- Every action logs a timestamped entry
-
-### 7. ⚡ Carbon & Fuel Efficiency Analytics
-- Real-time burn rate (kg/hr) from aircraft type + altitude multiplier + speed factor
-  - A380: 12,000 kg/hr base; A320/737: 2,600 kg/hr base
-- Efficiency grade (A+ to F) based on cruise profile scoring
-- Cumulative fuel counter (kg) accumulated over session
-
-### 8. 📊 Live Telemetry Chart
-- Dual-axis Recharts area chart: Altitude (purple) + Speed (cyan)
-- Appended every 5 seconds from polling loop
-
-### 9. 🏢 Airport Boards
-- Enter any IATA code (BOM, DEL, JFK, LHR) for departures/arrivals
-- Click any listed flight to instantly track it on the globe
+> A full-stack, real-time Air Traffic Control (ATC) intelligence and flight tracking platform. Integrates live ADS-B telemetry, a 3D WebGL digital globe, automated 4D conflict detection, manual autopilot steering simulation, storm weather radar, and carbon emission analytics.
 
 ---
 
-## 🏗️ Architecture Overview
+## 🌟 Overview
 
-```
-BROWSER (React)
-  Dashboard.js
-    ├── 3D Globe (react-globe.gl / Three.js WebGL)
-    ├── Conflict Detection Engine (conflictDetection.js)
-    ├── Storm Radar Proximity Loop (useMemo)
-    ├── Autopilot Dead-Reckoning Engine (useEffect / setInterval)
-    ├── Fuel Burn Rate Accumulator (useRef + setInterval)
-    └── System Event Log Queue (useCallback / useState)
-  FlightChart.js → Recharts Dual-Axis Chart
-          |
-          | HTTP (Axios)
-          ▼
-BACKEND (Node.js + Express)
-  /api/flights/:id → flightController.js
-    ├── OpenSky Network OAuth2 → ADS-B live positions
-    ├── hexdb.io → aircraft ICAO type lookup
-    ├── AviationStack → origin/destination route
-    └── Demo fallback → static route database
-  /api/flights/radar → Bounding box query
-  /api/airports/:code → Departures & arrivals
+**Flight Command Center (AERO-CORE)** is a production-grade web application designed for real-time flight tracking, air traffic surveillance, and spatial collision prediction. Built on React and Node.js, the platform streams global aircraft position data over low-latency WebSockets, renders dynamic 3D telemetry on a WebGL globe, and executes pairwise conflict detection to maintain standard ATC separation minima.
+
+---
+
+## ✨ Core Features
+
+### 🌐 1. Interactive 3D WebGL Globe Radar
+- Powered by `react-globe.gl` and `Three.js` with realistic atmospheric glow and night-sky shaders.
+- **Level of Detail (LOD) Viewport Culling**: Dynamically calculates camera elevation and filters HTML DOM aircraft markers (e.g. rendering nearest ~25 to ~60 planes based on zoom) to preserve 60 FPS performance.
+- **Event Forwarding Fix**: Custom wheel event interceptors on DOM plane markers re-dispatch scroll events directly to the WebGL canvas, eliminating dead-zones during zoom interactions.
+
+### 📡 2. Real-Time ADS-B Telemetry & WebSocket Engine
+- Streams real-time flight telemetry via OpenSky Network and `airplanes.live` APIs.
+- **Centralized Server Polling & Caching**: The backend queries global state vectors once every 4–6 seconds, preventing API rate limits (`429 Too Many Requests`).
+- **Diff-Based Pushes**: WebSockets send viewport bounding-box filtered updates containing only added, removed, or repositioned plane delta objects (`radar_diff`), minimizing payload size.
+
+### ⚠️ 3. ATC Proximity & 4D Conflict Detection
+- **Haversine Distance**: Computes horizontal great-circle distance between all visible aircraft pairs.
+- **Separation Minima Enforcement**: Triggers alerts if horizontal separation falls below **5.0 Nautical Miles (9.26 km)** and vertical separation drops below **1,000 ft**.
+- **4D Dead-Reckoning Trajectory Projection**: Projects aircraft positions forward in 15-second steps over a 5-minute horizon using velocity vectors and headings to compute Closest Point of Approach (CPA).
+- Displays glowing red warning arcs, flashing HUD alerts, and CPA countdown metrics.
+
+### 🕹️ 4. Manual Autopilot Steering Console
+- Simulated Air Traffic Control override panel allowing users to switch a flight from `AUTO` to `MANUAL` mode.
+- Interactive sliders for **Heading** (0°–360°), **Altitude** (1,000–45,000 ft), and **Groundspeed** (200–600 kts).
+- Runs an inverse Haversine dead-reckoning update loop every 2 seconds, steering the aircraft along the target heading vector with real-time globe trajectory updates.
+
+### 🌩️ 5. 3D Storm Weather Radar & Turbulence Warning
+- Renders active meteorological storm cells with animated concentric WebGL rings.
+- Computes real-time proximity between aircraft and storm boundaries. Crossing storm radiuses triggers visual HUD turbulence warnings and screen-vibration CSS feedback.
+
+### ⚡ 6. Carbon Analytics & Telemetry Graphs
+- Computes real-time fuel burn rate (kg/hr) using aircraft model profiles (e.g. A380, B777, A320), velocity, and altitude factors.
+- Displays live dual-axis telemetry charts (**Recharts**) tracking speed and altitude history over time.
+
+### 🏢 7. Global Airport Departure & Arrival Boards
+- Instant lookup for 37,000+ global airports via IATA codes (`BOM`, `DEL`, `JFK`, `LHR`).
+- Clicking any flight in the departure/arrival list focuses and tracks that aircraft on the globe.
+
+---
+
+## 🏗️ Architecture & Data Flow
+
+```mermaid
+flowchart TD
+    subgraph Client ["Frontend (React 18)"]
+        Dashboard["Dashboard Container"]
+        Globe["3D WebGL Globe (Three.js)"]
+        ConflictEngine["Conflict Detection Engine"]
+        TelemetryChart["Telemetry Charts (Recharts)"]
+        Autopilot["Autopilot Steering Loop"]
+    end
+
+    subgraph Backend ["Backend (Node.js & Express)"]
+        Server["Express HTTP & WS Server"]
+        WSRadar["/ws/radar WebSocket Manager"]
+        FlightCtrl["Flight Controller"]
+        GlobalCache["Global OpenSky / Airplanes.live Cache"]
+        DB["PostgreSQL / In-Memory Fallback"]
+    end
+
+    subgraph External ["External Services"]
+        OpenSky["OpenSky Network API"]
+        AirplanesLive["airplanes.live API"]
+        AviationStack["AviationStack API"]
+    end
+
+    Dashboard <--> |"WebSocket /ws/radar (Bbox & Diffs)"| WSRadar
+    Dashboard <--> |"REST HTTP /api/flights"| Server
+    Server --> FlightCtrl
+    FlightCtrl --> External
+    WSRadar <--> GlobalCache
+    GlobalCache <--> OpenSky & AirplanesLive
+    Server --> DB
+    Dashboard --> Globe
+    Dashboard --> ConflictEngine
+    Dashboard --> TelemetryChart
+    Dashboard --> Autopilot
 ```
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology | Why |
+| Domain | Technology | Description |
 |---|---|---|
-| Frontend Framework | React 18 | Hooks for complex real-time state |
-| 3D Rendering | react-globe.gl + Three.js | WebGL globe + HTML overlay support |
-| Charts | Recharts | Dual-axis area charts |
-| Backend | Node.js + Express | Fast REST API |
-| Live Data | OpenSky Network ADS-B | Real aircraft ADS-B positions |
-| Aircraft Data | hexdb.io | ICAO hex → aircraft type |
-| Route Data | AviationStack | Origin/destination lookup |
-| Geospatial Math | Custom algorithms | Haversine, dead-reckoning, spherical trig |
-| Styling | Vanilla CSS + CSS Variables | Glassmorphic HUD theme |
-| Build Tool | CRACO | CRA proxy config without ejecting |
+| **Frontend UI** | React 18, HTML5, Vanilla CSS | Glassmorphic HUD UI, responsive component state |
+| **3D Rendering** | `react-globe.gl`, `Three.js` | WebGL 3D Earth, custom atmospheric shaders, dynamic markers |
+| **Data Visualization** | `Recharts`, `Leaflet` | Dual-axis telemetry profile charts & backup 2D map views |
+| **Backend API** | Node.js, Express | Modular REST routes, controllers, and error handling |
+| **Real-Time Communication** | `ws` (WebSockets) | Viewport bounding-box filtering, diff-based data push |
+| **Database & Cache** | PostgreSQL (`pg`), In-memory cache | Telemetry persistence, conflict logging, fallback buffers |
+| **Data Sources** | OpenSky Network, `airplanes.live`, AviationStack | Live ADS-B telemetry, aircraft metadata, route schedules |
+| **Geospatial Math** | Custom Spherical Trig | Haversine distance, dead-reckoning forward projection, CPA math |
+| **Testing** | Jest, Supertest | Unit math tests, endpoint integration, mock external APIs |
+| **Process Manager** | Concurrently, Nodemon | Unified single-command dev server execution |
 
 ---
 
@@ -124,207 +116,147 @@ BACKEND (Node.js + Express)
 
 ```
 Flight-analyzer/
-├── backend/
-│   ├── controllers/
-│   │   ├── flightController.js     # OpenSky, radar scans, route fallbacks, demo simulation
-│   │   └── airportController.js    # Departure/arrival boards
-│   ├── routes/
-│   │   ├── flightRoutes.js         # GET /api/flights/:id | /radar
-│   │   └── airportRoutes.js        # GET /api/airports/:code/flights
-│   ├── data/
-│   │   └── airports_db.json        # 37,219 IATA → Lat/Lng lookups
-│   ├── server.js                   # Express app, CORS, routing
-│   └── .env                        # API keys (not committed)
+├── package.json                 # Root launcher (concurrently backend & frontend)
+├── README.md                    # Main GitHub project documentation
 │
-└── frontend/
-    └── src/
-        ├── components/
-        │   ├── Flightchart.js       # Recharts dual-axis telemetry chart
-        │   └── PlaneMarker.js       # Reusable aircraft marker component
-        ├── utils/
-        │   └── conflictDetection.js # Haversine, dead-reckoning, CPA math
-        └── pages/
-            ├── Dashboard.js         # Main controller: globe, autopilot, storms, logger, analytics
-            └── Dashboard.css        # Glassmorphic cyber-HUD stylesheet
+├── backend/                     # Express REST API & WebSocket Server
+│   ├── server.js                # Express & WS server initialization, global OpenSky poller
+│   ├── app.js                   # Express application routes & middleware
+│   ├── db.js                    # PostgreSQL pool & connection handler
+│   ├── controllers/             # Endpoint logic (flightController, airportController)
+│   ├── routes/                  # Express route definitions (/api/flights, /api/airports)
+│   ├── services/                # Business logic & telemetry loggers
+│   ├── data/                    # Static airports database (37,000+ entries)
+│   ├── tests/                   # Automated unit & integration test suites
+│   └── package.json             # Backend dependencies & Jest configuration
+│
+└── frontend/                    # React 18 Application
+    ├── public/                  # Static assets & HTML shell
+    ├── src/
+    │   ├── components/          # Flightchart, PlaneMarker, and reusable HUD widgets
+    │   ├── utils/               # conflictDetection.js (Haversine & 4D trajectory math)
+    │   └── pages/               # Dashboard.js (main view) & Dashboard.css
+    └── package.json             # Frontend dependencies & CRACO build setup
 ```
 
 ---
 
-## 🧮 Core Algorithms (Interview-Ready)
+## 🚀 Quick Start & Installation
 
-### Haversine Distance Formula
-Computes the shortest distance between two GPS coordinates on Earth's surface.
-```js
-function getHaversineDistance(p1, p2) {
-  const R = 6371;
-  const dLat = (p2[0] - p1[0]) * Math.PI / 180;
-  const dLng = (p2[1] - p1[1]) * Math.PI / 180;
-  const a = Math.sin(dLat/2)**2 +
-    Math.cos(p1[0]*Math.PI/180)*Math.cos(p2[0]*Math.PI/180)*Math.sin(dLng/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-```
-> Unlike Euclidean distance, Haversine accounts for Earth's curvature. Critical for aviation where routes span thousands of kilometers.
+### Prerequisites
+- **Node.js**: v18.0.0 or higher
+- **npm**: v9.0.0 or higher
 
-### Dead-Reckoning (Spherical Forward Projection)
-Projects an aircraft's future position given heading and speed.
-```js
-function getProjectedPoint(lat, lon, headingDeg, distanceKm) {
-  const R = 6371;
-  const d = distanceKm / R;
-  const h = headingDeg * Math.PI / 180;
-  const φ1 = lat * Math.PI / 180;
-  const λ1 = lon * Math.PI / 180;
-  const φ2 = Math.asin(Math.sin(φ1)*Math.cos(d) + Math.cos(φ1)*Math.sin(d)*Math.cos(h));
-  const λ2 = λ1 + Math.atan2(Math.sin(h)*Math.sin(d)*Math.cos(φ1), Math.cos(d)-Math.sin(φ1)*Math.sin(φ2));
-  return [φ2 * 180 / Math.PI, λ2 * 180 / Math.PI];
-}
-```
-> Used in the autopilot engine (every 2s) and conflict detection (every 15s over 5min horizon).
+### 1. Clone & Install Dependencies
+Run the unified installer script from the root directory:
 
-### Conflict Detection Logic
+```bash
+# Clone the repository
+git clone https://github.com/Maaanas28/Flight-analyzer-main.git
+cd Flight-analyzer-main
+
+# Install dependencies for root, backend, and frontend in one step
+npm run install-all
 ```
-For each pair (A, B):
-  1. Haversine distance → horizontal separation
-  2. |altA - altB| → vertical separation
-  3. Both below minima? → CONFLICT NOW
-  4. Else: project both 15s forward, repeat for 5 minutes
-  5. Record minimum CPA time and distance
+
+### 2. Environment Configuration (Optional)
+Create a `.env` file in the `backend/` directory:
+
+```env
+PORT=5000
+# Optional: External API keys (the app includes fallback data if omitted)
+OPENSKY_CLIENT_ID=your_opensky_username
+OPENSKY_CLIENT_SECRET=your_opensky_password
+AVIATIONSTACK_KEY=your_aviationstack_key
 ```
+
+### 3. Run Development Server
+Start both the backend server and frontend client simultaneously using a single command:
+
+```bash
+npm run dev
+```
+
+- **Frontend Interface**: `http://localhost:3000`
+- **Backend API & WebSockets**: `http://localhost:5000` (WebSocket at `ws://localhost:5000/ws/radar`)
 
 ---
 
-## ⚙️ API Endpoints
+## ⚙️ API Reference
+
+### REST API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | /api/flights/:flightNumber | Live ADS-B position, altitude, speed, heading, aircraft type, route |
-| GET | /api/flights/radar?minLat&maxLat&minLng&maxLng | All aircraft in viewport bounding box |
-| GET | /api/airports/:code/flights | Departures & arrivals for any IATA airport |
+| `GET` | `/api/flights/:flightNumber` | Fetch live aircraft telemetry, heading, altitude, and route metadata |
+| `GET` | `/api/flights/radar` | Bounding-box radar query (`minLat`, `maxLat`, `minLng`, `maxLng`) |
+| `GET` | `/api/airports/:code/flights` | Fetch arrivals and departures schedule for an IATA airport code |
+| `GET` | `/api/history/playback/:callsign` | Retrieve historical telemetry points for trajectory playback |
+| `GET` | `/api/history/conflicts` | Paginated log of detected separation conflicts |
+| `POST` | `/api/history/conflict` | Log a detected separation conflict event |
+
+### WebSocket API (`ws://localhost:5000/ws/radar`)
+
+**Client Request Message Format (Viewport Registration):**
+```json
+{
+  "lamin": 10.5,
+  "lomin": 65.2,
+  "lamax": 28.9,
+  "lomax": 85.1
+}
+```
+
+**Server Broadcast Message Format (Diff Updates):**
+```json
+{
+  "type": "radar_diff",
+  "updated": [
+    {
+      "icao24": "800b41",
+      "callsign": "AIC101",
+      "latitude": 19.076,
+      "longitude": 72.877,
+      "altitude": 10668,
+      "velocity": 850,
+      "heading": 45
+    }
+  ],
+  "removed": ["800a12"],
+  "total": 42
+}
+```
 
 ---
 
-## 🧪 Automated Testing Setup
+## 🧪 Automated Testing
 
-The Flight Command Center includes a comprehensive automated test suite built with **Jest** and **Supertest**.
-
-### Testing Framework & Architecture
-- **Test Runner**: Jest (Node.js test runner, assertion library, and code coverage tool)
-- **API Integration Testing**: Supertest (Express HTTP integration assertions without port binding)
-- **Mocks**: Deterministic Jest mocks (`jest.mock('axios')`, `jest.spyOn(db, 'isDbConnected')`) to ensure 100% offline test execution without relying on live external aviation APIs or requiring an active PostgreSQL database.
-
-### Test Breakdown
-- **Unit Tests**:
-  - `haversine.test.js`: Validates Haversine great-circle distance math across identical coordinates, short proximity (<10 km), transoceanic city pairs, and edge coordinate boundaries.
-  - `conflictDetection.test.js`: Validates ATC separation minima conflict detection (5 NM horizontal, 1000 ft vertical), 5-minute dead-reckoning position projections (`projectPosition`), multi-aircraft pairwise checks, and filtering of invalid/null coordinates.
-  - `flightData.test.js`: Validates IATA-to-ICAO callsign format transformation (`BA112` -> `BAW112`), nearest airport coordinate lookup (`findNearestAirport`), demo flight simulation (`simulateFlight`), and mock airport schedule generation (`getMockSchedules`).
-  - `telemetryLogger.test.js`: Validates in-memory fallback buffers when PostgreSQL is disconnected and database SQL queries when PostgreSQL is connected.
-- **Integration Tests**:
-  - `flights.integration.test.js`: Validates `/api/flights/:flightNumber` search, callsign transformation, demo fallbacks, and `/api/flights/radar` bounding box queries with 400 Bad Request parameter validation.
-  - `airports.integration.test.js`: Validates `/api/airports/:code/flights` departure/arrival schedule retrieval and 400 Bad Request error handling for invalid airport codes.
-  - `history.integration.test.js`: Validates `/api/history/playback/:callsign`, `/api/history/conflicts` with limit pagination, and `/api/history/conflict` POST logging with validation.
-
-### Test Commands
-
-Run commands from the repository root or backend directory:
+The project includes an automated test suite using **Jest** and **Supertest**. Tests run completely offline without relying on external API networks or requiring a running database.
 
 ```bash
-# Run complete test suite
+# Run full test suite (unit + integration)
 npm test
 
-# Run unit tests only
+# Run unit tests only (geospatial math, conflict detection, helpers)
 npm run test:unit
 
-# Run integration tests only
+# Run integration tests only (Express routes & controller mocks)
 npm run test:integration
 
 # Generate code coverage report
 npm run test:coverage
 ```
 
-### Database Testing & Isolation
-- By default, test suites run in **isolated in-memory mode** (`isDbConnected() === false`).
-- Database query dispatching is verified using mocked PostgreSQL connection pools (`db.pool.query`), ensuring tests never corrupt production or local development PostgreSQL databases.
+---
+
+## 💡 Key Engineering Optimizations
+
+1. **Scroll-Zoom Intercepting**: Fixed Three.js WebGL canvas zoom dead-zones when scrolling over DOM markers by implementing custom wheel event forwarding.
+2. **WebSocket Data Minimization**: Reduced bandwidth usage by transmitting diff payloads (`updated` / `removed`) instead of full state arrays.
+3. **Smart LOD Rendering**: Scaled aircraft HTML DOM elements dynamically according to globe zoom level to prevent browser DOM overload and maintain smooth 60 FPS animation loops.
 
 ---
 
-## 🔑 Environment Setup
+## 📄 License
 
-Create `backend/.env`:
-
-```env
-PORT=5000
-AVIATIONSTACK_KEY=your_key
-OPENSKY_CLIENT_ID=your_username
-OPENSKY_CLIENT_SECRET=your_password
-```
-
-> All APIs have static fallback data — the app works even without valid keys.
-
----
-
-## 🏁 Getting Started
-
-```bash
-# Backend
-cd backend && npm install && node server.js
-# ✅ http://localhost:5000
-
-# Frontend
-cd frontend && npm install && npm start
-# ✅ http://localhost:3000
-```
-
----
-
-## ✈️ Demo Flight Codes
-
-| Callsign | Route | Airports |
-|---|---|---|
-| AIC101 | Mumbai → New Delhi | BOM → DEL |
-| BAW112 | London → New York | LHR → JFK |
-| QTR8964 | Doha → New Delhi | DOH → DEL |
-| DLH462 | Frankfurt → Miami | FRA → MIA |
-| UAE123 | Dubai → London | DXB → LHR |
-| THA925 | Bangkok → London | BKK → LHR |
-| KLM320 | Amsterdam → London | AMS → LHR |
-
----
-
-## 🎯 Common Interview Questions & Answers
-
-**Q: How does real-time flight tracking work?**
-> The backend queries OpenSky Network's ADS-B REST API every 5 seconds. ADS-B is a system where aircraft broadcast GPS position, altitude, speed, and heading — picked up by ground receivers and aggregated by OpenSky. We fetch the latest state vector and forward it to the frontend.
-
-**Q: How do you detect flight conflicts?**
-> Pairwise Haversine distance for all radar aircraft, checked against ATC minima (5 NM horizontal, 1,000 ft vertical). Additionally I project each aircraft 15s forward for 5 minutes via dead-reckoning to catch future violations. Same principle as real TCAS systems.
-
-**Q: How does the 3D globe work?**
-> react-globe.gl wraps Three.js WebGL. Aircraft markers are HTML DOM elements positioned on the globe surface via lat/lng — the library converts to 3D sphere positions. Flight paths are geodesic arcs. Storm cells use ringsData for animated concentric rings.
-
-**Q: How does manual autopilot override work?**
-> On engage, instead of server polling, a setInterval runs every 2s applying spherical forward-projection (inverse Haversine) to drift the plane in the direction of the heading slider at the speed slider's velocity.
-
-**Q: How do you handle API failures?**
-> Multi-layer fallback: OpenSky OAuth2 → OpenSky anonymous → static demoFlightRoutes database. Frontend shows a demo badge and simulation continues with trajectory math.
-
-**Q: Biggest technical challenge?**
-> The scroll-zoom dead-zone bug: HTML overlay elements consumed wheel events before they reached the Three.js canvas. Fixed by adding wheel listeners on every custom HTML marker that re-dispatch the event directly to the canvas via `dispatchEvent(new WheelEvent('wheel', e))`.
-
----
-
-## 📈 Future Scope
-
-- WebSocket real-time push instead of polling
-- PostgreSQL flight history persistence
-- ML conflict prediction using trajectory clustering
-- Voice ATC alerts via Web Speech API
-
----
-
-## 👨‍💻 Author
-
-Built as a portfolio demonstration of full-stack engineering, real-time systems design, geospatial mathematics, and advanced UI/UX.
-
-- GitHub: [Maaanas28/Flight-analyzer-main](https://github.com/Maaanas28/Flight-analyzer-main)
-
+Distributed under the MIT License. See `LICENSE` for details.

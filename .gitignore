@@ -21,3 +21,9 @@ lerna-debug.log*
 Thumbs.db
 **/coverage/
 
+# Local Interview & Private Notes
+README_INTERVIEW.md
+*_INTERVIEW.md
+interview_*.md
+
+
