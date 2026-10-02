@@ -42,10 +42,14 @@ wss.on("connection", (ws) => {
 
   ws.on("close", () => {
     clients.delete(ws);
+    prevSnapshot.delete(ws);
     console.log("🔌 WS client disconnected. Total:", wss.clients.size);
   });
 
-  ws.on("error", () => clients.delete(ws));
+  ws.on("error", () => {
+    clients.delete(ws);
+    prevSnapshot.delete(ws);
+  });
 });
 
 // Previous snapshot per client — used for diff calculation
@@ -174,7 +178,11 @@ setInterval(() => {
   if (clients.size === 0) return;
 
   for (const [ws, box] of clients.entries()) {
-    if (ws.readyState !== 1) { clients.delete(ws); continue; }
+    if (ws.readyState !== 1) {
+      clients.delete(ws);
+      prevSnapshot.delete(ws);
+      continue;
+    }
 
     try {
       // Filter global list by client's active bounding box
