@@ -8,8 +8,9 @@ const getApiBaseUrl = () => {
 };
 
 const getWsBaseUrl = () => {
-  if (process.env.REACT_APP_WS_URL) {
-    return process.env.REACT_APP_WS_URL.replace(/\/$/, "");
+  let wsUrl = process.env.REACT_APP_WS_URL;
+  if (wsUrl) {
+    return wsUrl.replace(/\/ws\/radar\/?$/, "").replace(/\/$/, "");
   }
   const apiUrl = getApiBaseUrl();
   if (apiUrl.startsWith("https://")) {
@@ -20,6 +21,7 @@ const getWsBaseUrl = () => {
   }
   return "ws://localhost:5000";
 };
+
 
 export const API_BASE_URL = getApiBaseUrl();
 export const WS_BASE_URL = getWsBaseUrl();
