@@ -412,6 +412,10 @@ async function getOpenSkyToken() {
   const clientSecret = process.env.OPENSKY_CLIENT_SECRET;
   if (!clientId || !clientSecret) return null;
 
+  if (Date.now() < (tokenCache.failedUntil || 0)) {
+    return null;
+  }
+
   // Reuse token if still valid (with 30s buffer)
   if (tokenCache.accessToken && Date.now() < tokenCache.expiryTime - 30_000) {
     return tokenCache.accessToken;
@@ -428,8 +432,11 @@ async function getOpenSkyToken() {
       "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token",
       params,
       {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        timeout: 8000,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        },
+        timeout: 4000,
       }
     );
 
@@ -442,10 +449,12 @@ async function getOpenSkyToken() {
       return data.access_token;
     }
   } catch (err) {
-    console.error(`❌ Failed to fetch OpenSky token: ${err.message}`);
+    console.warn(`⚠️ OpenSky auth token unreachable (${err.message}). Using fallback radar sources.`);
+    tokenCache.failedUntil = Date.now() + 5 * 60 * 1000; // 5 min cooldown
   }
   return null;
 }
+
 
 // ─── airplanes.live callsign query (primary) ───────────────────────────────────
 async function fetchFromAirplanesLiveCallsign(callsign) {
