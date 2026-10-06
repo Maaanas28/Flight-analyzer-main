@@ -2,6 +2,7 @@ import Globe from "react-globe.gl";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import FlightChart from "../components/Flightchart";
 import { detectConflicts } from "../utils/conflictDetection";
+import { API_BASE_URL, WS_BASE_URL } from "../config";
 import "./Dashboard.css";
 
 // ─── Demo route lookup (mirrors backend demoFlightRoutes) ────────────────────
@@ -663,7 +664,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    const WS_URL = "ws://localhost:5000/ws/radar";
+    const WS_URL = `${WS_BASE_URL}/ws/radar`;
     let reconnectTimer = null;
 
     const connect = () => {
@@ -752,7 +753,7 @@ export default function Dashboard() {
     const lomax = Math.min(180,  lng + delta);
     try {
       setRadarLoading(true);
-      const res  = await fetch(`http://localhost:5000/api/flights/radar?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`);
+      const res  = await fetch(`${API_BASE_URL}/api/flights/radar?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         const tracked = flightData?.callsign?.toUpperCase().trim();
@@ -809,7 +810,7 @@ export default function Dashboard() {
       setLoading(true); setHasSearched(true); setError(null);
       if (flyToOnSuccess) setActiveTab("search");
 
-      const res  = await fetch(`http://localhost:5000/api/flights/${codeToSearch}`);
+      const res  = await fetch(`${API_BASE_URL}/api/flights/${codeToSearch}`);
       const data = await res.json();
 
       if (data.error) {
@@ -911,7 +912,7 @@ export default function Dashboard() {
     if (!cleanCode || cleanCode.length !== 3) { setAirportError("Please enter a valid 3-letter IATA code"); return; }
     try {
       setAirportLoading(true); setAirportError(null);
-      const res  = await fetch(`http://localhost:5000/api/airports/${cleanCode}/flights`);
+      const res  = await fetch(`${API_BASE_URL}/api/airports/${cleanCode}/flights`);
       const data = await res.json();
       if (data.error) { setAirportError(data.error); setAirportSchedules(null); }
       else setAirportSchedules(data);

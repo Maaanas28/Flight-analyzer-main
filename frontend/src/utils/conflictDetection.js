@@ -1,4 +1,7 @@
+import { API_BASE_URL } from "../config";
+
 // Proximity and conflict detection utility for aircraft (Separation Alert)
+
 
 // Great-circle distance using Haversine formula (returns distance in km)
 export function getHaversineDistance(lat1, lng1, lat2, lng2) {
@@ -137,6 +140,7 @@ export function detectConflicts(flights, timeWindowMins = 5, stepSecs = 15) {
 // Throttle map to avoid duplicate conflict API reports within 30 seconds for same pair
 const reportedConflictsCache = new Map();
 
+
 export async function reportConflictAlert(conflict) {
   if (!conflict || !conflict.f1Callsign || !conflict.f2Callsign) return;
   
@@ -150,7 +154,8 @@ export async function reportConflictAlert(conflict) {
   reportedConflictsCache.set(pairKey, now);
 
   try {
-    await fetch("/api/history/conflict", {
+    await fetch(`${API_BASE_URL}/api/history/conflict`, {
+
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

@@ -1,0 +1,260 @@
+/* =========================================================
+   BootScreen.css — Aviation Command Center Boot Animation
+   ========================================================= */
+
+.boot-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #050507;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.55s ease-out;
+}
+
+.boot-overlay.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Background grid */
+.boot-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(245, 175, 25, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(245, 175, 25, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  animation: gridDrift 20s linear infinite;
+}
+
+@keyframes gridDrift {
+  0%   { background-position: 0 0; }
+  100% { background-position: 48px 48px; }
+}
+
+/* Radial vignette */
+.boot-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 35%, #050507 85%);
+  pointer-events: none;
+}
+
+/* Horizontal scan line */
+.boot-scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(245, 175, 25, 0.18) 20%,
+    rgba(245, 175, 25, 0.45) 50%,
+    rgba(245, 175, 25, 0.18) 80%,
+    transparent 100%
+  );
+  animation: scanMove 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes scanMove {
+  0%   { top: -4px; opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* Main content wrapper */
+.boot-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 660px;
+  padding: 0 24px;
+}
+
+/* Header block */
+.boot-header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.boot-logo-icon {
+  font-size: 40px;
+  margin-bottom: 14px;
+  animation: iconPulse 2s ease-in-out infinite;
+  display: block;
+}
+
+@keyframes iconPulse {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(245,175,25,0.5)); }
+  50%       { filter: drop-shadow(0 0 18px rgba(245,175,25,0.9)); }
+}
+
+.boot-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(20px, 4vw, 30px);
+  font-weight: 900;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #f5af19;
+  text-shadow: 0 0 20px rgba(245, 175, 25, 0.5);
+  line-height: 1.1;
+}
+
+.boot-subtitle {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: clamp(11px, 1.8vw, 13px);
+  color: rgba(161, 161, 170, 0.8);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+
+/* Divider */
+.boot-divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(245, 175, 25, 0.5) 30%,
+    rgba(245, 175, 25, 0.8) 50%,
+    rgba(245, 175, 25, 0.5) 70%,
+    transparent 100%
+  );
+  margin-bottom: 28px;
+}
+
+/* Terminal log block */
+.boot-terminal {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(245, 175, 25, 0.15);
+  border-radius: 4px;
+  padding: 16px 20px;
+  min-height: 220px;
+}
+
+.boot-terminal-prompt {
+  font-size: 13px;
+  color: rgba(245, 175, 25, 0.7);
+  margin-bottom: 12px;
+}
+
+.boot-log-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: clamp(11px, 1.6vw, 13px);
+  line-height: 1.75;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.boot-log-line.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.boot-check {
+  color: #10b981;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.boot-log-text {
+  color: rgba(248, 250, 252, 0.82);
+}
+
+/* Blinking cursor */
+.boot-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background: #f5af19;
+  margin-left: 4px;
+  vertical-align: middle;
+  animation: cursorBlink 0.75s step-end infinite;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.boot-cursor.active {
+  opacity: 1;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* Status bar */
+.boot-status-bar {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 11px;
+  color: rgba(113, 113, 122, 0.7);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.boot-progress-track {
+  flex: 1;
+  height: 2px;
+  background: rgba(245, 175, 25, 0.12);
+  border-radius: 2px;
+  margin: 0 14px;
+  overflow: hidden;
+}
+
+.boot-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f5af19, #e11d48);
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 6px rgba(245, 175, 25, 0.5);
+}
+
+/* Ready message */
+.boot-ready-msg {
+  text-align: center;
+  margin-top: 20px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(12px, 2vw, 14px);
+  letter-spacing: 3px;
+  color: #10b981;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  text-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+}
+
+.boot-ready-msg.visible {
+  opacity: 1;
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .boot-terminal {
+    padding: 12px 14px;
+  }
+  .boot-title {
+    letter-spacing: 2px;
+  }
+}

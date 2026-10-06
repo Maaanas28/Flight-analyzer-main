@@ -7,10 +7,11 @@ const connectionString = process.env.DB_URL || "postgresql://postgres:postgres@l
 const pool = new Pool({
   connectionString,
   connectionTimeoutMillis: 8000,
-  ssl: connectionString.includes("neon.tech") || connectionString.includes("sslmode=require")
+  ssl: connectionString.includes("neon.tech") || connectionString.includes("sslmode=require") || connectionString.includes("render.com") || process.env.NODE_ENV === "production"
     ? { rejectUnauthorized: false }
     : false,
 });
+
 
 let isDbConnected = false;
 
