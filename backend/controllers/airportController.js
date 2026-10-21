@@ -1,4 +1,16 @@
 const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
+
+let airportsDb = {};
+try {
+  const dbPath = path.join(__dirname, "..", "data", "airports_db.json");
+  if (fs.existsSync(dbPath)) {
+    airportsDb = JSON.parse(fs.readFileSync(dbPath, "utf8"));
+  }
+} catch (err) {
+  console.error("Failed to load airports_db in airportController:", err.message);
+}
 
 // Generate realistic mock schedules for testing and fallback
 function getMockSchedules(airportCode) {
@@ -76,7 +88,17 @@ function getMockSchedules(airportCode) {
     });
   }
 
-  return { departures, arrivals };
+  const ap = airportsDb[code];
+  const airportMeta = {
+    iata: code,
+    name: ap?.name || `International Airport ${code}`,
+    city: ap?.city || '',
+    country: ap?.country || '',
+    lat: ap?.lat || null,
+    lng: ap?.lng || null
+  };
+
+  return { airport: airportMeta, departures, arrivals };
 }
 
 exports.getAirportFlights = async (req, res) => {
@@ -85,6 +107,16 @@ exports.getAirportFlights = async (req, res) => {
     if (!code || code.length !== 3) {
       return res.status(400).json({ error: "Valid 3-letter IATA airport code required" });
     }
+
+    const ap = airportsDb[code];
+    const airportMeta = {
+      iata: code,
+      name: ap?.name || `International Airport ${code}`,
+      city: ap?.city || '',
+      country: ap?.country || '',
+      lat: ap?.lat || null,
+      lng: ap?.lng || null
+    };
 
     const key = process.env.AVIATIONSTACK_KEY;
     if (!key) {
@@ -116,7 +148,7 @@ exports.getAirportFlights = async (req, res) => {
         return res.json(getMockSchedules(code));
       }
 
-      res.json({ departures, arrivals });
+      res.json({ airport: airportMeta, departures, arrivals });
     } catch (apiErr) {
       console.error(`❌ AviationStack API error: ${apiErr.message} — returning mock fallback`);
       return res.json(getMockSchedules(code));

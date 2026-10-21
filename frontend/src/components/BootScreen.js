@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './BootScreen.css';
 
 /**
@@ -28,28 +28,49 @@ const BOOT_MESSAGES = [
  *   - 550 ms CSS fade-out
  *   Total visible: ~2 100 ms  |  Component unmounts: ~2 650 ms
  */
-const MESSAGE_INTERVAL_MS = 190;
-const READY_DELAY_MS = MESSAGE_INTERVAL_MS * BOOT_MESSAGES.length + 400;
-const FADE_DELAY_MS = READY_DELAY_MS + 50;
-const UNMOUNT_DELAY_MS = FADE_DELAY_MS + 600;
+const MESSAGE_INTERVAL_MS = 60;
+const READY_DELAY_MS = MESSAGE_INTERVAL_MS * BOOT_MESSAGES.length + 120;
+const FADE_DELAY_MS = READY_DELAY_MS + 40;
+const UNMOUNT_DELAY_MS = FADE_DELAY_MS + 350;
 
 export default function BootScreen({ onComplete }) {
   const [visibleCount, setVisibleCount] = useState(0);
   const [progressPct, setProgressPct] = useState(0);
   const [showReady, setShowReady] = useState(false);
   const [fading, setFading] = useState(false);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState(() => {
+    try {
+      return sessionStorage.getItem('flightTrackerBooted') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   const timersRef = useRef([]);
 
+  const skipBoot = useCallback(() => {
+    timersRef.current.forEach(clearTimeout);
+    try { sessionStorage.setItem('flightTrackerBooted', 'true'); } catch {}
+    setFading(true);
+    setTimeout(() => {
+      setDone(true);
+      if (onComplete) onComplete();
+    }, 150);
+  }, [onComplete]);
+
   useEffect(() => {
+    if (done) {
+      if (onComplete) onComplete();
+      return;
+    }
+
     const schedule = (fn, delay) => {
       const id = setTimeout(fn, delay);
       timersRef.current.push(id);
       return id;
     };
 
-    // Stagger each boot message
+    // Stagger boot messages swiftly
     BOOT_MESSAGES.forEach((_, idx) => {
       schedule(() => {
         setVisibleCount(idx + 1);
@@ -57,25 +78,31 @@ export default function BootScreen({ onComplete }) {
       }, (idx + 1) * MESSAGE_INTERVAL_MS);
     });
 
-    // Show "Command center ready"
     schedule(() => setShowReady(true), READY_DELAY_MS);
-
-    // Begin fade-out
     schedule(() => setFading(true), FADE_DELAY_MS);
-
-    // Unmount & hand control back to App
     schedule(() => {
+      try { sessionStorage.setItem('flightTrackerBooted', 'true'); } catch {}
       setDone(true);
       if (onComplete) onComplete();
     }, UNMOUNT_DELAY_MS);
 
-    return () => timersRef.current.forEach(clearTimeout);
-  }, [onComplete]);
+    const handleKey = (e) => {
+      if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+        skipBoot();
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, [onComplete, done, skipBoot]);
 
   if (done) return null;
 
   return (
-    <div className={`boot-overlay${fading ? ' fade-out' : ''}`} role="status" aria-label="System initializing">
+    <div className={`boot-overlay${fading ? ' fade-out' : ''}`} onClick={skipBoot} role="status" aria-label="System initializing">
       {/* Animated grid background */}
       <div className="boot-grid" />
       {/* Vignette overlay */}
@@ -128,6 +155,8 @@ export default function BootScreen({ onComplete }) {
         <div className={`boot-ready-msg${showReady ? ' visible' : ''}`} aria-live="polite">
           ✓ &nbsp; Command center ready
         </div>
+
+        <div className="boot-skip-hint">Click anywhere or press Esc to skip</div>
       </div>
     </div>
   );

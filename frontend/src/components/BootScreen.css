@@ -6,15 +6,16 @@
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: #050507;
+  background: #050811;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
   overflow: hidden;
   opacity: 1;
-  transition: opacity 0.55s ease-out;
+  transition: opacity 0.35s ease-out;
+  cursor: pointer;
 }
 
 .boot-overlay.fade-out {
@@ -27,22 +28,22 @@
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(245, 175, 25, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(245, 175, 25, 0.04) 1px, transparent 1px);
-  background-size: 48px 48px;
+    linear-gradient(rgba(59, 130, 246, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
   animation: gridDrift 20s linear infinite;
 }
 
 @keyframes gridDrift {
   0%   { background-position: 0 0; }
-  100% { background-position: 48px 48px; }
+  100% { background-position: 40px 40px; }
 }
 
 /* Radial vignette */
 .boot-vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at center, transparent 35%, #050507 85%);
+  background: radial-gradient(ellipse at center, transparent 40%, #03060e 90%);
   pointer-events: none;
 }
 
@@ -55,12 +56,12 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(245, 175, 25, 0.18) 20%,
-    rgba(245, 175, 25, 0.45) 50%,
-    rgba(245, 175, 25, 0.18) 80%,
+    rgba(59, 130, 246, 0.2) 20%,
+    rgba(59, 130, 246, 0.5) 50%,
+    rgba(59, 130, 246, 0.2) 80%,
     transparent 100%
   );
-  animation: scanMove 2.8s ease-in-out infinite;
+  animation: scanMove 2.5s ease-in-out infinite;
   pointer-events: none;
 }
 
@@ -79,46 +80,45 @@
   flex-direction: column;
   align-items: center;
   width: 100%;
-  max-width: 660px;
+  max-width: 580px;
   padding: 0 24px;
 }
 
 /* Header block */
 .boot-header {
   text-align: center;
-  margin-bottom: 36px;
+  margin-bottom: 24px;
 }
 
 .boot-logo-icon {
-  font-size: 40px;
-  margin-bottom: 14px;
+  font-size: 32px;
+  margin-bottom: 8px;
   animation: iconPulse 2s ease-in-out infinite;
   display: block;
 }
 
 @keyframes iconPulse {
-  0%, 100% { filter: drop-shadow(0 0 6px rgba(245,175,25,0.5)); }
-  50%       { filter: drop-shadow(0 0 18px rgba(245,175,25,0.9)); }
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(59,130,246,0.5)); }
+  50%       { filter: drop-shadow(0 0 16px rgba(59,130,246,0.9)); }
 }
 
 .boot-title {
-  font-family: 'Orbitron', sans-serif;
-  font-size: clamp(20px, 4vw, 30px);
-  font-weight: 900;
-  letter-spacing: 4px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: clamp(20px, 3.5vw, 26px);
+  font-weight: 800;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #f5af19;
-  text-shadow: 0 0 20px rgba(245, 175, 25, 0.5);
+  color: #f1f5f9;
   line-height: 1.1;
 }
 
 .boot-subtitle {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: clamp(11px, 1.8vw, 13px);
-  color: rgba(161, 161, 170, 0.8);
-  letter-spacing: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(11px, 1.8vw, 12px);
+  color: #94a3b8;
+  letter-spacing: 2px;
   text-transform: uppercase;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 /* Divider */
@@ -128,39 +128,57 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(245, 175, 25, 0.5) 30%,
-    rgba(245, 175, 25, 0.8) 50%,
-    rgba(245, 175, 25, 0.5) 70%,
+    rgba(59, 130, 246, 0.3) 30%,
+    rgba(59, 130, 246, 0.6) 50%,
+    rgba(59, 130, 246, 0.3) 70%,
     transparent 100%
   );
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
 /* Terminal log block */
 .boot-terminal {
   width: 100%;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(245, 175, 25, 0.15);
-  border-radius: 4px;
+  background: rgba(10, 16, 28, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
   padding: 16px 20px;
-  min-height: 220px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(11px, 1.6vw, 12.5px);
+  line-height: 1.6;
+  min-height: 160px;
 }
 
 .boot-terminal-prompt {
-  font-size: 13px;
-  color: rgba(245, 175, 25, 0.7);
-  margin-bottom: 12px;
+  color: #60a5fa;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.boot-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 13px;
+  background: #60a5fa;
+  margin-left: 4px;
+  vertical-align: middle;
+  animation: blink 0.8s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
 }
 
 .boot-log-line {
+  color: #94a3b8;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: clamp(11px, 1.6vw, 13px);
-  line-height: 1.75;
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .boot-log-line.visible {
@@ -169,84 +187,77 @@
 }
 
 .boot-check {
-  color: #10b981;
-  font-size: 13px;
+  color: #22c55e;
+  font-size: 11px;
   flex-shrink: 0;
 }
 
 .boot-log-text {
-  color: rgba(248, 250, 252, 0.82);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Blinking cursor */
-.boot-cursor {
-  display: inline-block;
-  width: 8px;
-  height: 14px;
-  background: #f5af19;
-  margin-left: 4px;
-  vertical-align: middle;
-  animation: cursorBlink 0.75s step-end infinite;
-  opacity: 0;
-  transition: opacity 0.1s;
-}
-
-.boot-cursor.active {
-  opacity: 1;
-}
-
-@keyframes cursorBlink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0; }
-}
-
-/* Status bar */
+/* Status / progress bar */
 .boot-status-bar {
-  margin-top: 24px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
+  margin-top: 16px;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  color: rgba(113, 113, 122, 0.7);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 1px;
 }
 
 .boot-progress-track {
   flex: 1;
-  height: 2px;
-  background: rgba(245, 175, 25, 0.12);
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 2px;
-  margin: 0 14px;
+  margin: 0 12px;
   overflow: hidden;
 }
 
 .boot-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #f5af19, #e11d48);
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
   border-radius: 2px;
   width: 0%;
-  transition: width 0.3s ease;
-  box-shadow: 0 0 6px rgba(245, 175, 25, 0.5);
+  transition: width 0.15s ease;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
 }
 
 /* Ready message */
 .boot-ready-msg {
   text-align: center;
-  margin-top: 20px;
-  font-family: 'Orbitron', sans-serif;
-  font-size: clamp(12px, 2vw, 14px);
-  letter-spacing: 3px;
-  color: #10b981;
+  margin-top: 14px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #22c55e;
   text-transform: uppercase;
   opacity: 0;
-  transition: opacity 0.4s ease;
-  text-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+  transition: opacity 0.25s ease;
 }
 
 .boot-ready-msg.visible {
   opacity: 1;
+}
+
+.boot-skip-hint {
+  margin-top: 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #475569;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: color 0.15s ease;
+}
+
+.boot-overlay:hover .boot-skip-hint {
+  color: #94a3b8;
 }
 
 /* Mobile */
@@ -255,6 +266,6 @@
     padding: 12px 14px;
   }
   .boot-title {
-    letter-spacing: 2px;
+    letter-spacing: 1px;
   }
 }

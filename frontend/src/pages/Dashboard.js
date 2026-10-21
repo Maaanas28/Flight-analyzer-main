@@ -37,18 +37,29 @@ const STORM_ZONES = [
 ];
 
 const MAJOR_AIRPORTS = [
-  { iata: "LHR", name: "London Heathrow", lat: 51.4700, lng: -0.4543, country: "UK", color: "#00f2fe", alt: 0.14 },
-  { iata: "JFK", name: "New York JFK", lat: 40.6413, lng: -73.7781, country: "USA", color: "#00f2fe", alt: 0.14 },
-  { iata: "DXB", name: "Dubai Int", lat: 25.2532, lng: 55.3657, country: "UAE", color: "#f5af19", alt: 0.16 },
-  { iata: "BOM", name: "Mumbai Chhatrapati", lat: 19.0896, lng: 72.8656, country: "India", color: "#00f2fe", alt: 0.14 },
-  { iata: "DEL", name: "Delhi Indira Gandhi", lat: 28.5562, lng: 77.1000, country: "India", color: "#00f2fe", alt: 0.14 },
-  { iata: "SIN", name: "Singapore Changi", lat: 1.3644, lng: 103.9915, country: "Singapore", color: "#a855f7", alt: 0.15 },
-  { iata: "HND", name: "Tokyo Haneda", lat: 35.5494, lng: 139.7798, country: "Japan", color: "#00f2fe", alt: 0.15 },
-  { iata: "SYD", name: "Sydney Kingsford", lat: -33.9399, lng: 151.1753, country: "Australia", color: "#f5af19", alt: 0.14 },
-  { iata: "FRA", name: "Frankfurt Main", lat: 50.0379, lng: 8.5622, country: "Germany", color: "#00f2fe", alt: 0.14 },
-  { iata: "CDG", name: "Paris Charles de Gaulle", lat: 49.0097, lng: 2.5479, country: "France", color: "#00f2fe", alt: 0.14 },
-  { iata: "LAX", name: "Los Angeles Int", lat: 33.9416, lng: -118.4085, country: "USA", color: "#a855f7", alt: 0.15 }
+  { iata: "LHR", name: "London Heathrow", lat: 51.4700, lng: -0.4543, country: "UK", color: "#3b82f6", alt: 0.008 },
+  { iata: "JFK", name: "New York JFK", lat: 40.6413, lng: -73.7781, country: "USA", color: "#3b82f6", alt: 0.008 },
+  { iata: "DXB", name: "Dubai Int", lat: 25.2532, lng: 55.3657, country: "UAE", color: "#f59e0b", alt: 0.008 },
+  { iata: "BOM", name: "Mumbai Chhatrapati", lat: 19.0896, lng: 72.8656, country: "India", color: "#3b82f6", alt: 0.008 },
+  { iata: "DEL", name: "Delhi Indira Gandhi", lat: 28.5562, lng: 77.1000, country: "India", color: "#3b82f6", alt: 0.008 },
+  { iata: "BKK", name: "Bangkok Suvarnabhumi", lat: 13.6900, lng: 100.7501, country: "Thailand", color: "#3b82f6", alt: 0.008 },
+  { iata: "MXP", name: "Milano Malpensa", lat: 45.6301, lng: 8.7255, country: "Italy", color: "#3b82f6", alt: 0.008 },
+  { iata: "SIN", name: "Singapore Changi", lat: 1.3644, lng: 103.9915, country: "Singapore", color: "#8b5cf6", alt: 0.008 },
+  { iata: "HND", name: "Tokyo Haneda", lat: 35.5494, lng: 139.7798, country: "Japan", color: "#3b82f6", alt: 0.008 },
+  { iata: "SYD", name: "Sydney Kingsford", lat: -33.9399, lng: 151.1753, country: "Australia", color: "#f59e0b", alt: 0.008 },
+  { iata: "FRA", name: "Frankfurt Main", lat: 50.0379, lng: 8.5622, country: "Germany", color: "#3b82f6", alt: 0.008 },
+  { iata: "CDG", name: "Paris Charles de Gaulle", lat: 49.0097, lng: 2.5479, country: "France", color: "#3b82f6", alt: 0.008 },
+  { iata: "AMS", name: "Amsterdam Schiphol", lat: 52.3105, lng: 4.7683, country: "Netherlands", color: "#3b82f6", alt: 0.008 },
+  { iata: "DOH", name: "Doha Hamad", lat: 25.2731, lng: 51.6081, country: "Qatar", color: "#f59e0b", alt: 0.008 },
+  { iata: "LAX", name: "Los Angeles Int", lat: 33.9416, lng: -118.4085, country: "USA", color: "#8b5cf6", alt: 0.008 }
 ];
+
+function getHeadingCardinal(deg) {
+  if (deg == null || isNaN(deg)) return "N";
+  const directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+  const index = Math.round(((deg % 360) + 360) % 360 / 22.5) % 16;
+  return directions[index];
+}
 
 function buildStormMarkerEl(storm) {
   const el = document.createElement("div");
@@ -95,11 +106,23 @@ function getProjectedPoint(lat, lon, headingDeg, distanceKm) {
   return [φ2 * 180 / Math.PI, λ2 * 180 / Math.PI];
 }
 
-// Build the plane SVG string
-function planeSVG(color, size = 28) {
-  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="${color}">
-    <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L14 19v-5.5l7 2.5z"/>
+// Build the plane SVG — realistic airplane top-view silhouette
+function planeSVG(color, size = 24) {
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="${color}" xmlns="http://www.w3.org/2000/svg" style="display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.7));">
+    <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
   </svg>`;
+}
+
+// Isolated Live Clock component: prevents Dashboard re-render on every second
+function LiveClock() {
+  const [timeStr, setTimeStr] = useState(() => new Date().toISOString().slice(11, 19) + " UTC");
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTimeStr(new Date().toISOString().slice(11, 19) + " UTC");
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <div className="system-time">{timeStr}</div>;
 }
 
 // Aircraft image map (unchanged from original)
@@ -164,14 +187,16 @@ function RadarSweepWidget() {
 
 // Build an active tracked-plane HTML element for globe htmlElementsData
 function buildActivePlaneEl(flightData, onStopClick, isConflict) {
-  const isDemo = flightData._isDemoData;
-  const color  = isConflict ? "#ff0055" : (isDemo ? "#f5af19" : "#00f2fe");
+  // Active tracked plane: bright gold for live/demo, red for conflict
+  const color  = isConflict ? "#ef4444" : "#f59e0b";
   const rot    = flightData.heading || 0;
   const altFt  = Math.round(flightData.altitude * 3.28084).toLocaleString();
   const spdKts = Math.round(flightData.velocity / 1.852);
 
   const wrapper = document.createElement("div");
   wrapper.className = `globe-plane-marker${isConflict ? " conflict" : ""}`;
+  wrapper.style.pointerEvents = "auto";
+  wrapper.style.cursor = "pointer";
 
   const plane = document.createElement("div");
   plane.className = "globe-active-plane";
@@ -185,8 +210,8 @@ function buildActivePlaneEl(flightData, onStopClick, isConflict) {
   reticle.className = "globe-tactical-reticle";
 
   const svgWrap = document.createElement("div");
-  svgWrap.className = `globe-active-svg${isConflict ? " conflict" : (isDemo ? " demo" : "")}`;
-  svgWrap.innerHTML = planeSVG(color, 28);
+  svgWrap.className = `globe-active-svg${isConflict ? " conflict" : ""}`;
+  svgWrap.innerHTML = planeSVG(color, 30);
 
   plane.appendChild(p1);
   plane.appendChild(p2);
@@ -197,13 +222,12 @@ function buildActivePlaneEl(flightData, onStopClick, isConflict) {
   const tip = document.createElement("div");
   tip.className = "globe-tooltip";
   tip.innerHTML = `
-    <div class="globe-tooltip-callsign">${flightData.callsign}</div>
+    <div class="globe-tooltip-callsign" style="color:#fbbf24">✈️ ${flightData.callsign}</div>
     <div class="globe-tooltip-row"><span>ALT</span><span>${altFt} ft</span></div>
     <div class="globe-tooltip-row"><span>SPD</span><span>${spdKts} kts</span></div>
     <div class="globe-tooltip-row"><span>HDG</span><span>${Math.round(rot)}°</span></div>
   `;
 
-  // Forward wheel events to canvas to ensure smooth globe zooming when cursor is over the active plane marker
   wrapper.addEventListener("wheel", (e) => {
     const canvas = document.querySelector(".globe-view canvas");
     if (canvas) canvas.dispatchEvent(new WheelEvent("wheel", e));
@@ -222,24 +246,34 @@ function buildMiniPlaneEl(f, onClickFn, isConflict) {
 
   const wrapper = document.createElement("div");
   wrapper.className = `globe-plane-marker mini-plane-marker${isConflict ? " conflict" : ""}`;
+  wrapper.style.pointerEvents = "auto";
+  wrapper.style.cursor = "pointer";
 
   const dot = document.createElement("div");
   dot.className = "globe-mini-plane";
   dot.style.transform = `rotate(${rot}deg)`;
-  dot.innerHTML = planeSVG(isConflict ? "#ff0055" : "#f5af19", 16);
+  // Flightradar24 yellow for high contrast on blue ocean
+  dot.innerHTML = planeSVG(isConflict ? "#ef4444" : "#fbbf24", 20);
 
   const tip = document.createElement("div");
   tip.className = "globe-tooltip";
   tip.innerHTML = `
-    <div class="globe-tooltip-callsign">${f.callsign}</div>
+    <div class="globe-tooltip-callsign">✈️ ${f.callsign}</div>
     <div class="globe-tooltip-row"><span>ALT</span><span>${altFt} ft</span></div>
     <div class="globe-tooltip-row"><span>SPD</span><span>${spdKts} kts</span></div>
-    <div class="globe-tooltip-row" style="font-size:9px;color:rgba(0,242,254,0.5);margin-top:4px"><span>Click to track</span><span></span></div>
+    <div class="globe-tooltip-row" style="font-size:10px;color:#facc15;margin-top:4px"><span>Click to track</span><span>➔</span></div>
   `;
 
-  wrapper.addEventListener("click", (e) => { e.stopPropagation(); onClickFn(f.callsign, f); });
+  // Stop pointerdown from triggering OrbitControls drag, guaranteeing click detection
+  const handleSelect = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClickFn(f.callsign, f);
+  };
+  wrapper.addEventListener("pointerdown", (e) => e.stopPropagation());
+  wrapper.addEventListener("mousedown", (e) => e.stopPropagation());
+  wrapper.addEventListener("click", handleSelect);
 
-  // Forward wheel events to canvas to ensure smooth globe zooming when cursor is over the mini plane marker
   wrapper.addEventListener("wheel", (e) => {
     const canvas = document.querySelector(".globe-view canvas");
     if (canvas) canvas.dispatchEvent(new WheelEvent("wheel", e));
@@ -268,16 +302,15 @@ export default function Dashboard() {
   const [hasPosition, setHasPosition] = useState(false);
   const [error, setError]             = useState(null);
   const [demoRoute, setDemoRoute]     = useState(null);
-  const [timeStr, setTimeStr]         = useState("");
   const [showChartPanel, setShowChartPanel] = useState(true);
-  const [globeAlt, setGlobeAlt]       = useState(2.5);
+  const [globeLOD, setGlobeLOD]       = useState(1); // 0: close, 1: mid, 2: far
   const [isConflictPanelMinimized, setIsConflictPanelMinimized] = useState(false);
 
   const [radarFlights, setRadarFlights] = useState([]);
   const [radarLoading, setRadarLoading] = useState(false);
 
   const [showWeather, setShowWeather]   = useState(false);
-  const [showDensity, setShowDensity]   = useState(true);
+  const [showDensity, setShowDensity]   = useState(false);
   const [showAirports, setShowAirports] = useState(true);
 
   const [globeTheme, setGlobeTheme]       = useState("matte"); // "matte" | "cyber" | "night"
@@ -292,6 +325,7 @@ export default function Dashboard() {
 
   const [airportCode, setAirportCode]         = useState("");
   const [airportSchedules, setAirportSchedules] = useState(null);
+  const [activeAirport, setActiveAirport]     = useState(null);
   const [airportLoading, setAirportLoading]   = useState(false);
   const [airportError, setAirportError]       = useState(null);
 
@@ -549,8 +583,11 @@ export default function Dashboard() {
       const currentBurnRate = Math.round(baseRate * altFactor * speedFactor);
       const stepFuel = (currentBurnRate / 3600) * 2;
 
-      setAccumulatedFuel(prev => prev + stepFuel);
-      setAccumulatedCO2(prev => (prev + stepFuel) * 3.16);
+      setAccumulatedFuel(prev => {
+        const nextFuel = prev + stepFuel;
+        setAccumulatedCO2(nextFuel * 3.16);
+        return nextFuel;
+      });
     }, 2000);
 
     return () => clearInterval(interval);
@@ -571,10 +608,8 @@ export default function Dashboard() {
   // with a different Matrix4 prototype — causing a determinantAffine crash.
   // Visual glow is achieved via CSS drop-shadow filters on HTML markers instead.
 
-  // ─── Globe scene lighting ─────────────────────────────────────────────────
-  // react-globe.gl renders into its own Three.js scene. We add a subtle
-  // ambient fill + warm directional light so the night texture reads as a
-  // legible lit Earth with visible city lights rather than a pitch-black disc.
+  // ─── Globe scene lighting & space background ──────────────────────────────
+  // Photorealistic space lighting: deep void background + warm daylight sun + blue ambient
   useEffect(() => {
     const t = setTimeout(async () => {
       const globe = globeRef.current;
@@ -582,15 +617,22 @@ export default function Dashboard() {
       try {
         const THREE = await import('three');
         const scene = globe.scene();
-        // Soft blue-grey ambient so the dark hemisphere isn't pure void
-        const ambient = new THREE.AmbientLight(0x152030, 2.5);
+        // Deep space void — eliminates pixelated star noise and renders clean orbit background
+        scene.background = new THREE.Color(0x050811);
+
+        // Soft blue ambient — keeps the night side visible with realistic earth-glow
+        const ambient = new THREE.AmbientLight(0x1e2c48, 1.7);
         scene.add(ambient);
-        // Warm sun-side directional key light
-        const sun = new THREE.DirectionalLight(0xfff4e0, 1.6);
-        sun.position.set(3, 1.5, 1);
+        // Primary sun: bright, natural daylight
+        const sun = new THREE.DirectionalLight(0xfff8ee, 2.6);
+        sun.position.set(5, 2, 4);
         scene.add(sun);
+        // Subtle backfill for soft terminator edge
+        const fill = new THREE.DirectionalLight(0x182440, 0.4);
+        fill.position.set(-5, -1, -3);
+        scene.add(fill);
       } catch(e) { /* degrade gracefully if scene() unavailable */ }
-    }, 800);
+    }, 400);
     return () => clearTimeout(t);
   }, []);
 
@@ -600,14 +642,13 @@ export default function Dashboard() {
       const globe = globeRef.current;
       if (!globe) return;
       const controls = globe.controls();
-      // 0.18 = slow cinematic drift (default is 2.0, 0.35 was still slightly fast)
       controls.autoRotate      = true;
-      controls.autoRotateSpeed = 0.18;
+      controls.autoRotateSpeed = 0.16;
       controls.enableDamping   = true;
-      controls.dampingFactor   = 0.07;
-      controls.minDistance     = 200;
+      controls.dampingFactor   = 0.08;
+      controls.minDistance     = 180;
       controls.maxDistance     = 1200;
-    }, 500);
+    }, 400);
     return () => clearTimeout(t);
   }, []);
 
@@ -620,17 +661,23 @@ export default function Dashboard() {
       controls.autoRotate = false;
     } else {
       controls.autoRotate      = true;
-      controls.autoRotateSpeed = 0.18;
+      controls.autoRotateSpeed = 0.16;
     }
   }, [flightData]);
 
-  // ─── UTC Clock ────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const update = () => setTimeStr(new Date().toISOString().slice(11, 19) + " UTC");
-    update();
-    const id = setInterval(update, 1000);
-    return () => clearInterval(id);
+  // Pause auto-rotation when user is hovering over the globe to click flights
+  const handleGlobeMouseEnter = useCallback(() => {
+    const controls = globeRef.current?.controls();
+    if (controls) controls.autoRotate = false;
   }, []);
+
+  const handleGlobeMouseLeave = useCallback(() => {
+    const controls = globeRef.current?.controls();
+    if (controls && !flightData) {
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.16;
+    }
+  }, [flightData]);
 
   // ─── Camera fly-to when position changes ─────────────────────────────────
   // Uses a generation counter to cancel stale queued animations when the
@@ -722,19 +769,25 @@ export default function Dashboard() {
   }, []); // mount once — flightData filtering handled inside via ref-captured closure
 
   const lastSentRef = useRef({ lat: 0, lng: 0, alt: 0 });
+  const prevLODRef  = useRef(1);
 
-  // ─── Globe onZoom → debounced bbox send ──────────────────────────────────
+  // ─── Globe onZoom → debounced bbox send & discrete LOD ───────────────────
+  // Avoid setting float altitude state on every frame to ensure smooth 60fps camera moves
   const handleGlobeZoom = useCallback((pov) => {
     prevPovRef.current = pov;
-    setGlobeAlt(pov.altitude);
+
+    // Discrete LOD tiers: 2 = far (>2.2), 1 = mid (1.2 - 2.2), 0 = zoomed in (<1.2)
+    const newLOD = pov.altitude > 2.2 ? 2 : pov.altitude > 1.2 ? 1 : 0;
+    if (newLOD !== prevLODRef.current) {
+      prevLODRef.current = newLOD;
+      setGlobeLOD(newLOD);
+    }
 
     const last = lastSentRef.current;
     const latDiff = Math.abs(pov.lat - last.lat);
     const lngDiff = Math.abs(pov.lng - last.lng);
     const altDiff = Math.abs(pov.altitude - last.alt);
 
-    // Only send the bbox update if the camera moved significantly
-    // This stops slow auto-rotation from constantly resetting (starving) the debounce timer
     if (latDiff > 4 || lngDiff > 4 || altDiff > 0.1) {
       if (radarDebRef.current) clearTimeout(radarDebRef.current);
       radarDebRef.current = setTimeout(() => {
@@ -782,28 +835,55 @@ export default function Dashboard() {
       addEventLog(`📡 RADAR: Scanning for callsign "${cleanCode}"...`, "info");
 
       if (initialData) {
-        setFlightData({
-          callsign: cleanCode,
-          latitude: initialData.latitude, longitude: initialData.longitude,
-          altitude: initialData.altitude, velocity: initialData.velocity,
-          heading:  initialData.heading,  country:  initialData.country,
-          icao24:   initialData.icao24,   _isDemoData: false,
-        });
-        setPosition([initialData.latitude, initialData.longitude]);
-        setTrail([[initialData.latitude, initialData.longitude]]);
-        setChartData([{ tick: 1, altitude: Math.round(initialData.altitude * 3.28084), speed: Math.round(initialData.velocity / 1.852) }]);
-        setHasPosition(false); // Force fly-to on next successful fetch
+        const altM = initialData.altitude || 10000;
+        const spdKmh = initialData.velocity || 800;
+        const hdg = initialData.heading || 0;
+        const lat = initialData.latitude;
+        const lng = initialData.longitude;
 
-        const altFt = Math.round(initialData.altitude * 3.28084);
-        const spdKts = Math.round(initialData.velocity / 1.852);
+        const initialFlightObj = {
+          callsign: cleanCode,
+          latitude: lat,
+          longitude: lng,
+          altitude: altM,
+          velocity: spdKmh,
+          heading:  hdg,
+          country:  initialData.country || "Commercial Aviation",
+          icao24:   initialData.icao24,
+          _isDemoData: false,
+          aircraft: {
+            manufacturer: "Airliner",
+            type: initialData.icao24 ? `ICAO ${initialData.icao24.toUpperCase()}` : "Jet",
+            registration: initialData.icao24 ? initialData.icao24.toUpperCase() : "LIVE"
+          }
+        };
+
+        setFlightData(initialFlightObj);
+        setPosition([lat, lng]);
+        setTrail([[lat, lng]]);
+        setChartData([{ tick: 1, altitude: Math.round(altM * 3.28084), speed: Math.round(spdKmh / 1.852) }]);
+        setHasPosition(true);
+
+        const altFt = Math.round(altM * 3.28084);
+        const spdKts = Math.round(spdKmh / 1.852);
         setManualAltitude(altFt || 33000);
-        setManualHeading(Math.round(initialData.heading) || 90);
+        setManualHeading(Math.round(hdg) || 90);
         setManualSpeed(spdKts || 450);
+
+        // Project route line along heading
+        const origin = getProjectedPoint(lat, lng, (hdg + 180) % 360, 1600);
+        const dest   = getProjectedPoint(lat, lng, hdg, 2400);
+        setDemoRoute({ start: origin, end: dest, isProjected: true });
+
+        // Immediately fly camera to this flight!
+        if (flyToOnSuccess) {
+          flyTo(lat, lng, 0.7, 1800);
+        }
       } else {
         setFlightData(null); setTrail([]); setChartData([]);
         setHasPosition(false);
+        setDemoRoute(null);
       }
-      setDemoRoute(null);
     }
 
     try {
@@ -814,13 +894,19 @@ export default function Dashboard() {
       const data = await res.json();
 
       if (data.error) {
-        addEventLog(`📡 RADAR: Scanner failed: ${data.error}`, "danger");
-        setError(data.error); setFlightData(null); setTrail([]);
-        setChartData([]); setDemoRoute(null); return;
+        if (!initialData) {
+          addEventLog(`📡 RADAR: Scanner failed: ${data.error}`, "danger");
+          setError(data.error); setFlightData(null); setTrail([]);
+          setChartData([]); setDemoRoute(null);
+        }
+        return;
       }
       if (!data.callsign || data.latitude == null || data.longitude == null || isNaN(data.latitude) || isNaN(data.longitude)) {
-        setError("Invalid flight data received"); setFlightData(null); setTrail([]);
-        setChartData([]); setDemoRoute(null); return;
+        if (!initialData) {
+          setError("Invalid flight data received"); setFlightData(null); setTrail([]);
+          setChartData([]); setDemoRoute(null);
+        }
+        return;
       }
 
       const { latitude, longitude } = data;
@@ -899,25 +985,54 @@ export default function Dashboard() {
       }].slice(-30));
 
     } catch (err) {
-      setError("Failed to fetch flight data. Check server connection.");
-      setFlightData(null);
+      if (!initialData) {
+        setError("Failed to fetch flight data. Check server connection.");
+        setFlightData(null);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Airport schedules
+  // Airport schedules & terminal airspace radar
   const fetchAirportSchedules = async (code = airportCode) => {
-    const cleanCode = code.toUpperCase().trim();
+    const cleanCode = (code || airportCode || "").toUpperCase().trim();
     if (!cleanCode || cleanCode.length !== 3) { setAirportError("Please enter a valid 3-letter IATA code"); return; }
     try {
       setAirportLoading(true); setAirportError(null);
+      setAirportCode(cleanCode);
       const res  = await fetch(`${API_BASE_URL}/api/airports/${cleanCode}/flights`);
       const data = await res.json();
-      if (data.error) { setAirportError(data.error); setAirportSchedules(null); }
-      else setAirportSchedules(data);
-    } catch { setAirportError("Failed to fetch schedules."); }
-    finally { setAirportLoading(false); }
+      if (data.error) {
+        setAirportError(data.error);
+        setAirportSchedules(null);
+      } else {
+        setAirportSchedules(data);
+
+        // Find airport coordinates
+        const foundMajor = MAJOR_AIRPORTS.find(a => a.iata === cleanCode);
+        const lat = data.airport?.lat || foundMajor?.lat || 28.5562;
+        const lng = data.airport?.lng || foundMajor?.lng || 77.1000;
+        const name = data.airport?.name || foundMajor?.name || `${cleanCode} Airport`;
+        const city = data.airport?.city || cleanCode;
+        const country = data.airport?.country || foundMajor?.country || "";
+
+        const airportObj = { iata: cleanCode, lat, lng, name, city, country };
+        setActiveAirport(airportObj);
+
+        // Zoom camera right down to airport!
+        flyTo(lat, lng, 0.42, 2200);
+
+        // Immediately request live planes in that airport's airspace from WebSocket!
+        sendBbox(lat, lng, 0.42);
+
+        addEventLog(`🛫 AIRPORT RADAR: Locked onto ${cleanCode} (${name}). Airspace scan active.`, "info");
+      }
+    } catch {
+      setAirportError("Failed to fetch schedules.");
+    } finally {
+      setAirportLoading(false);
+    }
   };
 
   // Throttle ref prevents animation backlog on rapid radar-dot clicking
@@ -1036,9 +1151,19 @@ export default function Dashboard() {
     color: flightData?._isDemoData ? "#f5af19" : "#a855f7",
   }] : [];
 
-  // Departure & Arrival Airport Pulsing Rings
+  // Departure & Arrival & Active Airport Pulsing Rings
   const airportRings = useMemo(() => {
     const list = [];
+    if (activeAirport) {
+      list.push({
+        id: "active-airport-ring",
+        lat: activeAirport.lat,
+        lng: activeAirport.lng,
+        color: "rgba(59, 130, 246, 0.95)",
+        maxRadius: 7,
+        speed: 2.8
+      });
+    }
     if (demoRoute && demoRoute.start) {
       list.push({ id: "dep-ring", lat: demoRoute.start[0], lng: demoRoute.start[1], color: "rgba(0, 242, 254, 0.9)", maxRadius: 5, speed: 2.5 });
     }
@@ -1046,7 +1171,7 @@ export default function Dashboard() {
       list.push({ id: "arr-ring", lat: demoRoute.end[0], lng: demoRoute.end[1], color: "rgba(245, 175, 25, 0.9)", maxRadius: 5, speed: 2.5 });
     }
     return list;
-  }, [demoRoute]);
+  }, [demoRoute, activeAirport]);
 
   // HTML markers data: active plane + mini radar planes
   // We use separate htmlElementsData arrays for cleaner code
@@ -1201,27 +1326,52 @@ export default function Dashboard() {
       return dl * dl + dn * dn;
     };
 
-    if (globeAlt > 2.2) {
-      // Zoomed out very far: show all planes scattered globally
-      list = list.slice(0, 200);
-    } else if (globeAlt > 1.2) {
-      // Mid zoom: sort by distance, show 80 nearest
-      list = [...list].sort((a, b) => dist2(a) - dist2(b)).slice(0, 80);
+    // High-performance discrete LOD: optimal marker counts to maintain 60 FPS without DOM lag
+    if (globeLOD === 2) {
+      // Zoomed out far: cap at 35 globally distributed
+      list = list.slice(0, 35);
+    } else if (globeLOD === 1) {
+      // Mid zoom: show 45 nearest
+      list = [...list].sort((a, b) => dist2(a) - dist2(b)).slice(0, 45);
     } else {
-      // Zoomed in: sort by distance, show 150 nearest
-      list = [...list].sort((a, b) => dist2(a) - dist2(b)).slice(0, 150);
+      // Zoomed in close: show 55 nearest
+      list = [...list].sort((a, b) => dist2(a) - dist2(b)).slice(0, 55);
     }
 
     return list
       .filter(f => f.latitude && f.longitude && !isNaN(f.latitude))
       .map(f => ({ lat: f.latitude, lng: f.longitude, isActive: false, data: f }));
-  }, [derivedRadarFlights, globeAlt]);
+  }, [derivedRadarFlights, globeLOD]);
 
-  const stormMarkerData = showWeather
-    ? STORM_ZONES.map(s => ({ lat: s.lat, lng: s.lng, isStorm: true, data: s }))
-    : [];
+  const stormMarkerData = useMemo(() => {
+    return showWeather
+      ? STORM_ZONES.map(s => ({ lat: s.lat, lng: s.lng, isStorm: true, data: s }))
+      : [];
+  }, [showWeather]);
 
-  const allMarkerData = [...activeMarkerData, ...miniMarkerData, ...stormMarkerData];
+  const allMarkerData = useMemo(() => {
+    return [...activeMarkerData, ...miniMarkerData, ...stormMarkerData];
+  }, [activeMarkerData, miniMarkerData, stormMarkerData]);
+
+  // Stable HTML element factory for 3D globe markers
+  const renderHtmlElement = useCallback((d) => {
+    const emptyEl = () => { const e = document.createElement('div'); e.style.display = 'none'; return e; };
+    try {
+      if (!d) return emptyEl();
+      if (d.isStorm) {
+        return buildStormMarkerEl(d.data) || emptyEl();
+      }
+      if (!d.data || !d.data.callsign) return emptyEl();
+      const isConflict = conflictCallsigns.has(d.data.callsign);
+      if (d.isActive) {
+        return buildActivePlaneEl(d.data, stopTracking, isConflict) || emptyEl();
+      } else {
+        return buildMiniPlaneEl(d.data, handleShortcutClick, isConflict) || emptyEl();
+      }
+    } catch (err) {
+      return emptyEl();
+    }
+  }, [conflictCallsigns, stopTracking, handleShortcutClick]);
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
@@ -1230,9 +1380,11 @@ export default function Dashboard() {
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
       <header className="header-bar">
         <div className="logo-section">
-          <span className="icon-globe">🌐</span>
-          <span className="app-name">AERO-CORE</span>
-          <span className="app-subtitle">ORBITAL</span>
+          <svg className="app-logo-svg" viewBox="0 0 24 24" width="22" height="22" fill="#3b82f6" aria-hidden="true" style={{ display: "block" }}>
+            <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+          </svg>
+          <span className="app-name">FLIGHT ANALYZER</span>
+          <span className="app-subtitle">LIVE RADAR</span>
         </div>
         <div className="feed-status-section">
           <div className="feed-indicator">
@@ -1241,7 +1393,7 @@ export default function Dashboard() {
               {flightData && !flightData._isDemoData ? "FEED ACTIVE (OPENSKY)" : "FEED STANDBY"}
             </span>
           </div>
-          <div className="system-time">{timeStr}</div>
+          <LiveClock />
         </div>
       </header>
 
@@ -1304,22 +1456,49 @@ export default function Dashboard() {
         {/* Airport Board Tab */}
         {activeTab === "airport" && (
           <div className="tab-pane-content">
-            <div className="section-title">AIRPORT BOARD</div>
+            <div className="section-title">AIRPORT TERMINAL RADAR</div>
             <div className="search-box">
               <div className="input-glow-wrapper">
                 <input
                   value={airportCode}
                   onChange={e => setAirportCode(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && fetchAirportSchedules()}
-                  placeholder="Enter IATA (e.g. DEL, LHR)"
+                  onKeyDown={e => e.key === "Enter" && fetchAirportSchedules(airportCode)}
+                  placeholder="Enter IATA (e.g. DEL, BKK, LHR)"
                   className="cyber-input"
                   maxLength={3}
                 />
                 <span className="input-laser" />
               </div>
-              <button onClick={() => fetchAirportSchedules()} disabled={airportLoading} className="cyber-btn">
-                {airportLoading ? "LOADING" : "QUERY"}
+              <button onClick={() => fetchAirportSchedules(airportCode)} disabled={airportLoading} className="cyber-btn">
+                {airportLoading ? "SCANNING" : "QUERY"}
               </button>
+            </div>
+
+            <div className="shortcuts-container">
+              <span className="shortcuts-label">Major Hubs & Airspaces:</span>
+              <div className="chips-grid">
+                {[
+                  { code: "DEL", label: "DEL · Delhi" },
+                  { code: "BKK", label: "BKK · Bangkok" },
+                  { code: "DXB", label: "DXB · Dubai" },
+                  { code: "LHR", label: "LHR · London" },
+                  { code: "JFK", label: "JFK · New York" },
+                  { code: "SIN", label: "SIN · Singapore" },
+                  { code: "HND", label: "HND · Tokyo" },
+                  { code: "MXP", label: "MXP · Milan" }
+                ].map(a => (
+                  <button
+                    key={a.code}
+                    onClick={() => {
+                      setAirportCode(a.code);
+                      fetchAirportSchedules(a.code);
+                    }}
+                    className={`quick-chip ${airportCode.toUpperCase() === a.code ? "selected" : ""}`}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {airportError && (
@@ -1329,31 +1508,68 @@ export default function Dashboard() {
               </div>
             )}
 
+            {/* Active Airport Airspace Focus Card */}
+            {activeAirport && (
+              <div className="airport-focus-card">
+                <div className="airport-focus-header">
+                  <div className="airport-focus-title">
+                    <span className="focus-iata">{activeAirport.iata}</span>
+                    <div className="focus-meta">
+                      <span className="focus-name">{activeAirport.name}</span>
+                      <span className="focus-city">{activeAirport.city}{activeAirport.country ? `, ${activeAirport.country}` : ""}</span>
+                    </div>
+                  </div>
+                  <button
+                    className="focus-recenter-btn"
+                    onClick={() => {
+                      flyTo(activeAirport.lat, activeAirport.lng, 0.42, 2000);
+                      sendBbox(activeAirport.lat, activeAirport.lng, 0.42);
+                    }}
+                    title="Center camera on airport airspace"
+                  >
+                    🎯 FOCUS
+                  </button>
+                </div>
+                <div className="airport-airspace-badge">
+                  <span className="airspace-pulse-dot" />
+                  <span>AIRSPACE RADAR ACTIVE · SCANNING LOCAL TRAFFIC</span>
+                </div>
+              </div>
+            )}
+
             {airportSchedules && (
               <div className="airport-schedules">
-                <div className="schedule-header-row">
-                  <div className="airport-title">✈️ {airportCode.toUpperCase()} FLIGHT LOG</div>
-                </div>
                 <div className="schedule-tabs"><span className="active">DEPARTURES</span></div>
                 <div className="flight-list">
-                  {airportSchedules.departures.slice(0,5).map((f, idx) => (
-                    <div key={idx} className="flight-schedule-row" onClick={() => handleShortcutClick(f.flight.iata || f.flight.icao || f.flight.number)}>
+                  {airportSchedules.departures.slice(0, 6).map((f, idx) => (
+                    <div
+                      key={idx}
+                      className="flight-schedule-row"
+                      onClick={() => handleShortcutClick(f.flight.iata || f.flight.icao || f.flight.number)}
+                      title="Click to track on radar"
+                    >
                       <div className="fl-callsign">{f.flight.iata || f.flight.icao || f.flight.number}</div>
-                      <div className="fl-destination">➔ {f.arrival.iata}</div>
-                      <div className="fl-time">{f.departure.scheduled ? f.departure.scheduled.slice(11,16) : "--:--"}</div>
-                      <div className={`fl-status ${f.flight_status}`}>{f.flight_status}</div>
+                      <div className="fl-destination">➔ {f.arrival?.iata || "···"}</div>
+                      <div className="fl-time">{f.departure?.scheduled ? f.departure.scheduled.slice(11, 16) : "--:--"}</div>
+                      <div className={`fl-status ${f.flight_status || "active"}`}>{f.flight_status || "SCHEDULED"}</div>
                     </div>
                   ))}
                   {airportSchedules.departures.length === 0 && <div className="no-flights">No departures scheduled</div>}
                 </div>
-                <div className="schedule-tabs" style={{ marginTop: "10px" }}><span className="active">ARRIVALS</span></div>
+
+                <div className="schedule-tabs" style={{ marginTop: "12px" }}><span className="active">ARRIVALS</span></div>
                 <div className="flight-list">
-                  {airportSchedules.arrivals.slice(0,5).map((f, idx) => (
-                    <div key={idx} className="flight-schedule-row" onClick={() => handleShortcutClick(f.flight.iata || f.flight.icao || f.flight.number)}>
+                  {airportSchedules.arrivals.slice(0, 6).map((f, idx) => (
+                    <div
+                      key={idx}
+                      className="flight-schedule-row"
+                      onClick={() => handleShortcutClick(f.flight.iata || f.flight.icao || f.flight.number)}
+                      title="Click to track on radar"
+                    >
                       <div className="fl-callsign">{f.flight.iata || f.flight.icao || f.flight.number}</div>
-                      <div className="fl-origin">← {f.departure.iata}</div>
-                      <div className="fl-time">{f.arrival.scheduled ? f.arrival.scheduled.slice(11,16) : "--:--"}</div>
-                      <div className={`fl-status ${f.flight_status}`}>{f.flight_status}</div>
+                      <div className="fl-origin">← {f.departure?.iata || "···"}</div>
+                      <div className="fl-time">{f.arrival?.scheduled ? f.arrival.scheduled.slice(11, 16) : "--:--"}</div>
+                      <div className={`fl-status ${f.flight_status || "active"}`}>{f.flight_status || "EN ROUTE"}</div>
                     </div>
                   ))}
                   {airportSchedules.arrivals.length === 0 && <div className="no-flights">No arrivals scheduled</div>}
@@ -1370,7 +1586,6 @@ export default function Dashboard() {
               {flightData._isDemoData ? '⚠ SIMULATED TELEMETRY' : 'LIVE TELEMETRY'}
             </div>
 
-            {/* Prominent demo banner at the very top of the telemetry deck */}
             {flightData._isDemoData && (
               <div className="demo-alert" style={{ marginBottom: '10px' }}>
                 <span className="alert-pulse" style={{ background: 'var(--neon-amber)' }} />
@@ -1393,61 +1608,94 @@ export default function Dashboard() {
               <p className="country-sub">{flightData.country}</p>
             </div>
 
+            {/* ✈️ Premium Widescreen Aircraft Showcase Card */}
             {flightData.aircraft && (
               <div className="aircraft-details-card">
-                <div className="aircraft-img-wrapper">
-                  <img src={getAircraftImage(flightData.aircraft)} alt={flightData.aircraft.type} className="aircraft-illustration" />
+                <div className="aircraft-banner-wrap">
+                  <img
+                    src={getAircraftImage(flightData.aircraft)}
+                    alt={flightData.aircraft.type || "Aircraft"}
+                    className="aircraft-banner-img"
+                  />
+                  <div className="aircraft-banner-overlay" />
+                  <div className="aircraft-badge-row-top">
+                    <span className="aircraft-type-pill">
+                      ✈️ {flightData.aircraft.manufacturer} {flightData.aircraft.type}
+                    </span>
+                    {flightData.aircraft.registration && (
+                      <span className="aircraft-reg-pill">
+                        {flightData.aircraft.registration}
+                      </span>
+                    )}
+                  </div>
+                  {flightData.aircraft.owner && (
+                    <div className="aircraft-badge-row-bottom">
+                      <span className="aircraft-airline-pill">
+                        {flightData.aircraft.owner}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div className="aircraft-info-row">
-                  <div className="info-item">
-                    <span className="info-label">AIRCRAFT</span>
-                    <span className="info-val">{flightData.aircraft.manufacturer} {flightData.aircraft.type}</span>
+
+                <div className="aircraft-specs-grid">
+                  <div className="spec-item">
+                    <span className="spec-label">MODEL</span>
+                    <span className="spec-val">{flightData.aircraft.manufacturer} {flightData.aircraft.type}</span>
                   </div>
-                  <div className="info-item">
-                    <span className="info-label">REGISTRATION</span>
-                    <span className="info-val">{flightData.aircraft.registration || "N/A"}</span>
+                  <div className="spec-item">
+                    <span className="spec-label">REGISTRATION</span>
+                    <span className="spec-val mono">{flightData.aircraft.registration || "LIVE-RADAR"}</span>
+                  </div>
+                  <div className="spec-item">
+                    <span className="spec-label">OPERATOR</span>
+                    <span className="spec-val">{flightData.aircraft.owner || flightData.country || "Commercial"}</span>
+                  </div>
+                  <div className="spec-item">
+                    <span className="spec-label">HEX / ICAO24</span>
+                    <span className="spec-val mono">{flightData.icao24 ? flightData.icao24.toUpperCase() : "LIVE"}</span>
                   </div>
                 </div>
-                {flightData.aircraft.owner && (
-                  <div className="aircraft-owner-row">
-                    <span className="info-label">OPERATOR</span>
-                    <span className="info-val">{flightData.aircraft.owner}</span>
-                  </div>
-                )}
               </div>
             )}
 
+            {/* 🛫 Route Boarding Pass Card */}
             {demoRoute && (
               <div className="progress-slider-card">
-                <div className="progress-stations">
-                  <span className="station">{flightData.departure?.iata || "DEP"}</span>
-                  <span className="pct-badge">{demoRoute.isProjected ? "EST." : `${progressPct}%`}</span>
-                  <span className="station">{flightData.arrival?.iata || "···"}</span>
-                </div>
-                <div className="slider-track-container">
-                  <div className="slider-track-line">
-                    <div className="slider-fill-line" style={{ width: `${demoRoute.isProjected ? 50 : progressPct}%` }} />
-                    <div className="slider-airplane" style={{ left: `calc(${demoRoute.isProjected ? 50 : progressPct}% - 10px)` }}>✈️</div>
+                <div className="route-header-airports">
+                  <div className="route-station dep">
+                    <span className="station-code">{flightData.departure?.iata || "DEP"}</span>
+                    <span className="station-name">{flightData.departure?.name || "Departure Origin"}</span>
                   </div>
-                </div>
-                <div className="route-names-row">
-                  <div className="route-origin">
-                    <span className="route-city">{flightData.departure?.name || "Departure unknown"}</span>
-                  </div>
-                  <div className="route-dest">
-                    <span className="route-city" style={!flightData.arrival ? { color: "var(--text-muted)", fontStyle: "italic" } : {}}>
-                      {flightData.arrival?.name || (demoRoute.isProjected ? "Estimating…" : "Arrival unknown")}
+                  <div className="route-mid-progress">
+                    <span className="progress-badge">
+                      {demoRoute.isProjected ? "RADAR PROJECTED" : `${progressPct}% COMPLETED`}
                     </span>
                   </div>
-                </div>
-                <div className="advanced-slider-stats">
-                  <div className="slider-stat-row">
-                    <span>Distance Remaining:</span>
-                    <strong>{Math.round(distanceRemaining)} km</strong>
+                  <div className="route-station arr">
+                    <span className="station-code">{flightData.arrival?.iata || "ARR"}</span>
+                    <span className="station-name">{flightData.arrival?.name || (demoRoute.isProjected ? "Estimating…" : "Arrival Destination")}</span>
                   </div>
-                  <div className="slider-stat-row">
-                    <span>Flight Time (ETA):</span>
-                    <strong>{etaString}</strong>
+                </div>
+
+                <div className="flight-progress-track">
+                  <div className="track-rail">
+                    <div className="track-fill" style={{ width: `${demoRoute.isProjected ? 50 : progressPct}%` }} />
+                    <div className="track-plane-indicator" style={{ left: `calc(${demoRoute.isProjected ? 50 : progressPct}% - 11px)` }}>
+                      <svg viewBox="0 0 24 24" width="22" height="22" fill="#fbbf24" style={{ transform: "rotate(90deg)", filter: "drop-shadow(0 0 4px rgba(251,191,36,0.9))" }}>
+                        <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="route-telemetry-stats">
+                  <div className="stat-capsule">
+                    <span className="capsule-label">DISTANCE REMAINING</span>
+                    <span className="capsule-val">{Math.round(distanceRemaining).toLocaleString()} <span className="unit">km</span></span>
+                  </div>
+                  <div className="stat-capsule">
+                    <span className="capsule-label">FLIGHT TIME (ETA)</span>
+                    <span className="capsule-val">{etaString}</span>
                   </div>
                 </div>
               </div>
@@ -1481,7 +1729,7 @@ export default function Dashboard() {
                     />
                   </div>
                   <div className="slider-row">
-                    <span className="slider-label">HEADING: {manualHeading}°</span>
+                    <span className="slider-label">HEADING: {manualHeading}° ({getHeadingCardinal(manualHeading)})</span>
                     <input
                       type="range"
                       min="0"
@@ -1522,7 +1770,12 @@ export default function Dashboard() {
                 </div>
                 <div className="efficiency-tile font-gold">
                   <span className="eff-label">CO₂ EMISSIONS</span>
-                  <span className="eff-val">{(accumulatedCO2 / 1000).toFixed(3)} <span className="eff-unit">tons</span></span>
+                  <span className="eff-val">
+                    {accumulatedCO2 < 1000
+                      ? `${accumulatedCO2.toFixed(1)} `
+                      : `${(accumulatedCO2 / 1000).toFixed(3)} `}
+                    <span className="eff-unit">{accumulatedCO2 < 1000 ? "kg" : "tons"}</span>
+                  </span>
                 </div>
                 <div className="efficiency-tile font-grade">
                   <span className="eff-label">EFFICIENCY GRADE</span>
@@ -1531,33 +1784,45 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* 📊 High-Precision Avionics Metrics Grid */}
             <div className="metrics-grid">
               <div className="metric-tile">
                 <span className="tile-label">ALTITUDE</span>
-                <span className="tile-val">{Math.round(flightData.altitude * 3.28084).toLocaleString()} <span className="unit">ft</span></span>
-                <span className="tile-sub">{(flightData.altitude/1000).toFixed(2)} km</span>
+                <span className="tile-val">
+                  {Math.round(flightData.altitude * 3.28084).toLocaleString()} <span className="unit">ft</span>
+                </span>
+                <span className="tile-sub">FL{Math.round((flightData.altitude * 3.28084) / 100)} · {(flightData.altitude/1000).toFixed(2)} km</span>
               </div>
               <div className="metric-tile">
                 <span className="tile-label">GROUND SPEED</span>
-                <span className="tile-val">{Math.round(flightData.velocity / 1.852)} <span className="unit">kts</span></span>
-                <span className="tile-sub">{Math.round(flightData.velocity)} km/h</span>
+                <span className="tile-val">
+                  {Math.round(flightData.velocity / 1.852)} <span className="unit">kts</span>
+                </span>
+                <span className="tile-sub">Mach {(flightData.velocity / 1062).toFixed(2)} · {Math.round(flightData.velocity)} km/h</span>
               </div>
               <div className="metric-tile">
                 <span className="tile-label">VERTICAL RATE</span>
-                <span className="tile-val" style={{ fontSize: "11px" }}>{verticalRate}</span>
+                <span className={`tile-val ${verticalRate.startsWith("+") ? "climb" : verticalRate.startsWith("-") ? "descend" : ""}`}>
+                  {verticalRate}
+                </span>
+                <span className="tile-sub">{verticalRate.startsWith("+") ? "▲ CLIMBING" : verticalRate.startsWith("-") ? "▼ DESCENDING" : "― LEVEL FLIGHT"}</span>
               </div>
               <div className="metric-tile">
                 <span className="tile-label">HEADING</span>
-                <span className="tile-val">{Math.round(flightData.heading || 0)}°</span>
-                <span className="tile-sub">Compass bearing</span>
+                <span className="tile-val">
+                  {Math.round(flightData.heading || 0)}° <span className="unit">{getHeadingCardinal(flightData.heading || 0)}</span>
+                </span>
+                <span className="tile-sub">Compass Bearing</span>
               </div>
               <div className="metric-tile">
                 <span className="tile-label">LATITUDE</span>
-                <span className="tile-val" style={{ fontSize: "11px" }}>{formatCoord(flightData.latitude, "N", "S")}</span>
+                <span className="tile-val mono">{formatCoord(flightData.latitude, "N", "S")}</span>
+                <span className="tile-sub">WGS84 Coordinates</span>
               </div>
               <div className="metric-tile">
                 <span className="tile-label">LONGITUDE</span>
-                <span className="tile-val" style={{ fontSize: "11px" }}>{formatCoord(flightData.longitude, "E", "W")}</span>
+                <span className="tile-val mono">{formatCoord(flightData.longitude, "E", "W")}</span>
+                <span className="tile-sub">WGS84 Coordinates</span>
               </div>
             </div>
           </div>
@@ -1586,22 +1851,22 @@ export default function Dashboard() {
       {/* ── MAP CONTROLS ───────────────────────────────────────────────────── */}
       <div className="map-controls-deck">
         <button className={`control-deck-btn ${globeTheme === "matte" ? "active" : ""}`} onClick={() => setGlobeTheme("matte")}>
-          🎮 MATTE BLACK
+          SATELLITE
         </button>
         <button className={`control-deck-btn ${globeTheme === "cyber" ? "active" : ""}`} onClick={() => setGlobeTheme("cyber")}>
-          🌐 CYBER GRID
+          DARK MAP
         </button>
         <button className={`control-deck-btn ${globeTheme === "night" ? "active" : ""}`} onClick={() => setGlobeTheme("night")}>
-          🌙 NIGHT VISION
+          CITY LIGHTS
         </button>
         <button className={`control-deck-btn ${showWeather ? "active" : ""}`} onClick={() => setShowWeather(v => !v)}>
-          🌧️ {showWeather ? "WEATHER ON" : "WEATHER RADAR"}
+          {showWeather ? "WEATHER ON" : "WEATHER"}
         </button>
         <button className={`control-deck-btn ${showDensity ? "active" : ""}`} onClick={() => setShowDensity(v => !v)}>
-          📊 {showDensity ? "DENSITY ON" : "3D DENSITY"}
+          {showDensity ? "DENSITY ON" : "DENSITY"}
         </button>
         <button className={`control-deck-btn ${showAirports ? "active" : ""}`} onClick={() => setShowAirports(v => !v)}>
-          🏢 {showAirports ? "BEACONS ON" : "3D AIRPORTS"}
+          {showAirports ? "AIRPORTS ON" : "AIRPORTS"}
         </button>
       </div>
 
@@ -1688,28 +1953,38 @@ export default function Dashboard() {
       <RadarSweepWidget />
 
       {/* ── 3D GLOBE ───────────────────────────────────────────────────────── */}
-      <main className="globe-view">
+      <main className="globe-view" onMouseEnter={handleGlobeMouseEnter} onMouseLeave={handleGlobeMouseLeave}>
         <Globe
           ref={globeRef}
           width={dims.w}
           height={dims.h}
 
           // ─── Earth textures & Theme ─────────────────────────────────────
-          globeImageUrl={globeTheme === "night" ? "//unpkg.com/three-globe/example/img/earth-night.jpg" : "//unpkg.com/three-globe/example/img/earth-dark.jpg"}
+          // Blue Marble = photorealistic satellite daytime texture
+          // Night = NASA city lights texture
+          // Dark = high-contrast dark earth for cyber/matte themes
+          globeImageUrl={
+            globeTheme === "night"
+              ? "//unpkg.com/three-globe/example/img/earth-night.jpg"
+              : globeTheme === "cyber"
+                ? "//unpkg.com/three-globe/example/img/earth-dark.jpg"
+                : "//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
+          }
           bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-          backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
+          backgroundImageUrl={null}
 
-          // ─── Atmosphere rim ─────────────────────────────────────────────
+          // ─── Atmosphere rim (thin realistic tropospheric glow) ───────────
           showAtmosphere={true}
-          atmosphereColor={globeTheme === "cyber" ? "#00f2fe" : (globeTheme === "matte" ? "#f5af19" : "#00c8ff")}
-          atmosphereAltitude={globeTheme === "cyber" ? 0.28 : 0.16}
+          atmosphereColor={globeTheme === "cyber" ? "#3b82f6" : (globeTheme === "night" ? "#0284c7" : "#38bdf8")}
+          atmosphereAltitude={globeTheme === "cyber" ? 0.15 : 0.12}
 
-          // ─── Stealth Matte Black / Cyber Country Wireframe Polygons ──────
-          polygonsData={globeTheme !== "night" ? countriesData : []}
-          polygonCapColor={() => globeTheme === "matte" ? "rgba(18, 18, 22, 0.95)" : (globeTheme === "cyber" ? "rgba(0, 242, 254, 0.08)" : "rgba(245, 175, 25, 0.08)")}
-          polygonSideColor={() => globeTheme === "cyber" ? "rgba(0, 242, 254, 0.2)" : "rgba(245, 175, 25, 0.25)"}
-          polygonStrokeColor={() => globeTheme === "cyber" ? "#00f2fe" : "#f5af19"}
-          polygonAltitude={0.008}
+          // ─── Country polygons — only on cyber theme (wireframe style) ───
+          // Disabled on matte/satellite so the real Earth texture shows through
+          polygonsData={globeTheme === "cyber" ? countriesData : []}
+          polygonCapColor={() => "rgba(59, 130, 246, 0.04)"}
+          polygonSideColor={() => "rgba(59, 130, 246, 0.15)"}
+          polygonStrokeColor={() => "#3b82f6"}
+          polygonAltitude={0.005}
 
           // ─── Camera events ──────────────────────────────────────────────
           onZoom={handleGlobeZoom}
@@ -1723,8 +1998,8 @@ export default function Dashboard() {
           arcColor={d => d.isProjected
             ? ["rgba(100,116,139,0.5)", "rgba(100,116,139,0.5)"]
             : d.color === "#f5af19"
-              ? ["rgba(245,175,25,0.9)", "rgba(245,175,25,0.2)"]
-              : ["rgba(0,242,254,0.9)", "rgba(0,242,254,0.2)"]
+              ? ["rgba(245,158,11,0.9)", "rgba(245,158,11,0.2)"]
+              : ["rgba(59,130,246,0.9)", "rgba(59,130,246,0.2)"]
           }
           arcAltitude={d => d.isProjected ? 0.08 : 0.25}
           arcStroke={d => d.isProjected ? 0.3 : 0.5}
@@ -1759,20 +2034,20 @@ export default function Dashboard() {
           pointLng={d => d.lng}
           pointColor={d => d.color}
           pointAltitude={d => d.alt}
-          pointRadius={0.4}
+          pointRadius={0.22}
           pointResolution={12}
-          pointLabel={d => `<div style="background:rgba(6,12,24,0.92);border:1px solid ${d.color};padding:5px 10px;border-radius:4px;font-family:Orbitron,sans-serif;font-size:11px;color:#fff;box-shadow:0 0 12px ${d.color}40;">✈️ <strong>${d.iata}</strong> — ${d.name} (${d.country})</div>`}
+          pointLabel={d => `<div style="background:rgba(10,16,28,0.95);border:1px solid ${d.color};padding:5px 9px;border-radius:5px;font-family:Inter,sans-serif;font-size:11px;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.5);">✈️ <strong>${d.iata}</strong> — ${d.name} (${d.country})</div>`}
 
           // ─── 3D Air Traffic Density Hexbins ──────────────────────────────
           hexBinPointsData={showDensity ? radarFlights : []}
           hexBinPointLat={d => d.latitude}
           hexBinPointLng={d => d.longitude}
           hexBinPointWeight={1}
-          hexBinResolution={3}
-          hexMargin={0.15}
-          hexTopColor={() => '#00f2fe'}
-          hexSideColor={() => 'rgba(0,242,254,0.18)'}
-          hexBinAltitude={d => Math.min(d.sumWeight * 0.015, 0.22)}
+          hexBinResolution={4}
+          hexMargin={0.2}
+          hexTopColor={() => 'rgba(59,130,246,0.85)'}
+          hexSideColor={() => 'rgba(59,130,246,0.06)'}
+          hexBinAltitude={d => Math.min(d.sumWeight * 0.01, 0.12)}
 
           // ─── Conflict links ──────────────────────────────────────────────
           linksData={conflictLinks}
@@ -1780,7 +2055,7 @@ export default function Dashboard() {
           linkStartLng={d => d.startLng}
           linkEndLat={d => d.endLat}
           linkEndLng={d => d.endLng}
-          linkColor={() => '#ff0055'}
+          linkColor={() => '#ef4444'}
           linkWidth={1.5}
           linkResolution={6}
           linkDashLength={0.2}
@@ -1792,25 +2067,7 @@ export default function Dashboard() {
           htmlLat={d => d.lat}
           htmlLng={d => d.lng}
           htmlAltitude={0.005}
-          htmlElement={d => {
-            const emptyEl = () => { const e = document.createElement('div'); e.style.display = 'none'; return e; };
-            try {
-              if (!d) return emptyEl();
-              if (d.isStorm) {
-                return buildStormMarkerEl(d.data) || emptyEl();
-              }
-              if (!d.data || !d.data.callsign) return emptyEl();
-              const isConflict = conflictCallsigns.has(d.data.callsign);
-              if (d.isActive) {
-                return buildActivePlaneEl(d.data, stopTracking, isConflict) || emptyEl();
-              } else {
-                return buildMiniPlaneEl(d.data, handleShortcutClick, isConflict) || emptyEl();
-              }
-            } catch (err) {
-              console.error("HTML marker build error:", err);
-              return emptyEl();
-            }
-          }}
+          htmlElement={renderHtmlElement}
         />
       </main>
     </div>
